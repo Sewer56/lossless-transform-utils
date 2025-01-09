@@ -5,3 +5,5 @@ pub mod exports;
 
 #[cfg(feature = "std")]
 extern crate std;
+
+pub mod histogram;
