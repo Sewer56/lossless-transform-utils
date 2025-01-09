@@ -40,10 +40,10 @@ impl Histogram32 {
 
 #[inline]
 pub fn histogram32_from_bytes(bytes: &[u8]) -> Histogram32 {
-    // TODO: Benchmark exact crossover point
+    // Obtained by benching on a 5900X. May vary with different hardware.
     #[allow(clippy::if_same_then_else)]
-    if bytes.len() < 256 {
-        histogram32_from_bytes_generic_batched(bytes)
+    if bytes.len() < 64 {
+        histogram32_from_bytes_reference(bytes)
     } else {
         histogram32_from_bytes_generic_batched(bytes)
     }
