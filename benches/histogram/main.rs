@@ -1,22 +1,49 @@
 // benches/histogram_benchmark/mod.rs
 pub mod portable;
+use std::fs;
+
 use criterion::*;
 
 // Payload sizes for benchmarking
 pub const PAYLOAD_SIZES: &[usize] = &[
+    /*
     64,        // 64 bytes, this seems to be crossover point between reference and batched
     128,       // 128 bytes
     192,       // 192 bytes
     256,       // 256 bytes
     65536,     // 64 KiB
     1048576,   // 1 MiB
+    */
     8388608,   // 8 MiB
     178957156, // 170.7MiB
 ];
 
-// Generate test data of specified size
+// Optional file path for benchmark data
+const INPUT_FILE: Option<&str> = None;
+// Change this to Some("path/to/file") to use file
+
+// Generate test data of specified size, either from file or synthetic data
 pub fn generate_test_data(size: usize) -> Vec<u8> {
-    (0..size).map(|i| (i % 256) as u8).collect()
+    if let Some(path) = INPUT_FILE {
+        let file_content = fs::read(path).expect("Failed to read input file");
+
+        if file_content.len() >= size {
+            // If file is large enough, take a slice
+            file_content[..size].to_vec()
+        } else {
+            // If file is too small, duplicate its content
+            let mut result = Vec::with_capacity(size);
+            while result.len() < size {
+                let remaining = size - result.len();
+                let chunk_size = file_content.len().min(remaining);
+                result.extend_from_slice(&file_content[..chunk_size]);
+            }
+            result
+        }
+    } else {
+        // Original synthetic data generation
+        (0..size).map(|i| (i % 256) as u8).collect()
+    }
 }
 
 // Benchmark group configuration

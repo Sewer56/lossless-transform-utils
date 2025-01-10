@@ -117,7 +117,8 @@ pub fn histogram_nonaliased_withruns_core(data: &[u8]) -> Histogram32 {
         }
 
         // Sum up all bytes
-        // Vectorization-friendly summation
+        // Vectorization-friendly summation, LLVM is good at vectorizing this, so there's no need
+        // to write this by hand.
         if NUM_SLICES <= 1 {
             histogram[0]
         } else {
