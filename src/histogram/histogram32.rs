@@ -49,11 +49,123 @@ pub fn histogram32_from_bytes(bytes: &[u8]) -> Histogram32 {
     }
 }
 
+const NUM_SLICES: usize = 4;
+const SLICE_SIZE_U32S: usize = 256;
+
+/// Based on `histo_asm_scalar8_var5_core` by fabian 'ryg' giesen
+/// https://gist.github.com/rygorous/a86a5cf348922cdea357c928e32fc7e0
+///
+/// # Safety
+///
+/// This function is safe with any input.
+///
+/// # Remarks
+///
+/// For some reason on my AMD 5900X machine this is slower than the `batched` implementation.
+/// When experimenting with implementations, I don't (in general) seem to be getting benefits
+/// from preventing aliasing.
+///
+/// The reason may be something related to https://www.agner.org/forum/viewtopic.php?t=41 .
+/// I did check the assembly, it's comparable (near identical) to ryg's original.
+pub fn histogram_nonaliased_withruns_core(data: &[u8]) -> Histogram32 {
+    // 1K on stack, should be good.
+    let mut histogram = [Histogram32::default(); NUM_SLICES];
+
+    unsafe {
+        let mut ptr = data.as_ptr();
+        let end = ptr.add(data.len());
+        let current_ptr = histogram[0].inner.counter.as_mut_ptr();
+
+        if data.len() > 24 {
+            let aligned_end = end.sub(24);
+            let mut current = (ptr as *const u64).read_unaligned();
+
+            while ptr < aligned_end {
+                // Prefetch next 1 iteration.
+                let next = (ptr.add(8) as *const u64).read_unaligned();
+
+                if current == next {
+                    // Check if all bytes are the same within 'current'.
+
+                    // With a XOR, we can check every byte (except byte 0)
+                    // with its predecessor. If our value is <256,
+                    // then all bytes are the same value.
+                    let shifted = current << 8;
+                    if (shifted ^ current) < 256 {
+                        // All bytes same - increment single bucket by 16
+                        // (current is all same byte and current equals next)
+                        *current_ptr.add((current & 0xFF) as usize) += 16;
+                    } else {
+                        // Same 8 bytes twice - sum with INC2
+                        sum8(current_ptr, current, 2);
+                    }
+                } else {
+                    // Process both 8-byte chunks with INC1
+                    sum8(current_ptr, current, 1);
+                    sum8(current_ptr, next, 1);
+                }
+
+                current = ((ptr.add(16)) as *const u64).read_unaligned();
+                ptr = ptr.add(16);
+            }
+        }
+
+        while ptr < end {
+            let byte = *ptr;
+            *current_ptr.add(byte as usize) += 1;
+            ptr = ptr.add(1);
+        }
+
+        // Sum up all bytes
+        // Vectorization-friendly summation
+        if NUM_SLICES <= 1 {
+            histogram[0]
+        } else {
+            let mut result = histogram[0];
+            for x in (0..256).step_by(4) {
+                let mut sum0 = 0_u32;
+                let mut sum1 = 0_u32;
+                let mut sum2 = 0_u32;
+                let mut sum3 = 0_u32;
+
+                // Changing to suggested code breaks.
+                #[allow(clippy::needless_range_loop)]
+                for slice in 0..NUM_SLICES {
+                    sum0 += histogram[slice].inner.counter[x];
+                    sum1 += histogram[slice].inner.counter[x + 1];
+                    sum2 += histogram[slice].inner.counter[x + 2];
+                    sum3 += histogram[slice].inner.counter[x + 3];
+                }
+
+                result.inner.counter[x] = sum0;
+                result.inner.counter[x + 1] = sum1;
+                result.inner.counter[x + 2] = sum2;
+                result.inner.counter[x + 3] = sum3;
+            }
+
+            result
+        }
+    }
+}
+
+#[inline(always)]
+unsafe fn sum8(current_ptr: *mut u32, mut value: u64, increment: u32) {
+    for index in 0..8 {
+        let byte = (value & 0xFF) as usize;
+        let slice_offset = (index % NUM_SLICES) * SLICE_SIZE_U32S;
+        let write_ptr = current_ptr.add(slice_offset + byte);
+        let current = (write_ptr as *const u32).read_unaligned();
+        (write_ptr).write_unaligned(current + increment);
+        value >>= 8;
+    }
+}
+
 /// Generic, version of [`Histogram32`] generation that batches reads by reading [`usize`] bytes
 /// at any given time.
 ///
 /// This function is used when [`histogram32_from_bytes`] determines that using a
 /// specialized version isn't worth it (for example, if the input is very small).
+#[inline(never)]
 pub fn histogram32_from_bytes_generic_batched(bytes: &[u8]) -> Histogram32 {
     // 1K on stack, should be good.
     let mut histogram = Histogram32 {
@@ -210,5 +322,108 @@ mod batched_tests {
         let reference_result = histogram32_from_bytes_reference(&input);
 
         assert_eq!(batched_result.inner.counter, reference_result.inner.counter);
+    }
+}
+
+#[cfg(test)]
+mod nonaliased_tests {
+    use super::*;
+    use std::vec::Vec;
+
+    #[test]
+    fn empty_input() {
+        let input = [];
+        let histogram = histogram_nonaliased_withruns_core(&input);
+        assert_eq!(histogram.inner.counter, [0; 256]);
+    }
+
+    #[test]
+    fn small_input() {
+        let input = [1, 2, 3, 4];
+        let histogram = histogram_nonaliased_withruns_core(&input);
+
+        let mut expected = [0; 256];
+        expected[1] = 1;
+        expected[2] = 1;
+        expected[3] = 1;
+        expected[4] = 1;
+
+        assert_eq!(histogram.inner.counter, expected);
+    }
+
+    #[test]
+    fn repeated_bytes() {
+        // Create input with repeated bytes to test the optimization for identical 8-byte chunks
+        let input = [42; 32]; // 32 bytes of value 42, which will trigger the optimization
+        let histogram = histogram_nonaliased_withruns_core(&input);
+
+        let mut expected = [0; 256];
+        expected[42] = 32; // Should count all 32 occurrences
+
+        assert_eq!(histogram.inner.counter, expected);
+    }
+
+    #[test]
+    fn alignment_boundaries() {
+        // Test with different buffer sizes around the 24-byte boundary
+        // mentioned in the implementation
+        let sizes = [23, 24, 25];
+
+        for size in sizes {
+            let input: Vec<u8> = (0..size).map(|i| (i % 256) as u8).collect();
+            let histogram = histogram_nonaliased_withruns_core(&input);
+
+            // Verify against reference implementation
+            let reference = histogram32_from_bytes_reference(&input);
+            assert_eq!(
+                histogram.inner.counter, reference.inner.counter,
+                "Failed for size {}",
+                size
+            );
+        }
+    }
+
+    #[test]
+    fn repeated_chunks_different_bytes() {
+        // Create input where we have identical 8-byte chunks that contain different bytes
+        // This specifically tests the sum8(counter_ptr, current, true) branch
+        let chunk = [1, 2, 3, 4, 5, 6, 7, 8];
+        let mut input = Vec::with_capacity(32);
+
+        // Add the same 8-byte chunk twice, followed by another set
+        input.extend_from_slice(&chunk); // First chunk
+        input.extend_from_slice(&chunk); // Same chunk again - this should trigger INC2
+        input.extend_from_slice(&[9, 9, 9, 9, 9, 9, 9, 9]); // Different chunk
+        input.extend_from_slice(&[9, 9, 9, 9, 9, 9, 9, 9]); // Different chunk
+
+        let histogram = histogram_nonaliased_withruns_core(&input);
+
+        let mut expected = [0; 256];
+        // First two chunks counted twice each (4 total)
+        expected[1] = 2;
+        expected[2] = 2;
+        expected[3] = 2;
+        expected[4] = 2;
+        expected[5] = 2;
+        expected[6] = 2;
+        expected[7] = 2;
+        expected[8] = 2;
+        // Last chunk counted once
+        expected[9] = 16;
+
+        assert_eq!(histogram.inner.counter, expected);
+    }
+
+    #[test]
+    fn compare_against_reference() {
+        // Generate a varied test input
+        let mut input = Vec::with_capacity(1024);
+        for i in 0..1024 {
+            input.push((i % 256) as u8);
+        }
+
+        let asm_result = histogram_nonaliased_withruns_core(&input);
+        let reference_result = histogram32_from_bytes_reference(&input);
+        assert_eq!(asm_result.inner.counter, reference_result.inner.counter);
     }
 }
