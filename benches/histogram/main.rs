@@ -1,13 +1,9 @@
 // benches/histogram_benchmark/mod.rs
 use core::time::Duration;
 use criterion::*;
+use lossless_transform_utils::histogram::bench::*;
 pub use lossless_transform_utils::histogram::*;
 use std::fs;
-
-// Private API.
-#[path = "../../src/histogram/histogram32_private.rs"]
-mod histogram32_private;
-use histogram32_private::*;
 
 // Payload sizes for benchmarking
 pub const PAYLOAD_SIZES: &[usize] = &[
@@ -67,6 +63,10 @@ pub fn get_benchmark_config() -> Criterion {
 
 // Main benchmark function
 pub fn run_histogram_benchmarks(c: &mut Criterion) {
+    #[cfg(not(feature = "bench"))]
+    println!("Note: Use the 'bench' feature to enable additional benchmarks");
+    println!("Note: You can edit the 'INPUT_FILE' variable to test on a real file.");
+
     for &size in PAYLOAD_SIZES {
         let mut group = c.benchmark_group("histogram");
         group.throughput(Throughput::Bytes(size as u64));
@@ -77,8 +77,16 @@ pub fn run_histogram_benchmarks(c: &mut Criterion) {
         // Prepare test data
         let data = generate_test_data(size);
 
+        // Public API
+        group.bench_with_input(
+            BenchmarkId::new("portable/public-api", size),
+            &data,
+            |b, data| b.iter(|| histogram32_from_bytes(black_box(data))),
+        );
+
         // Benchmark portable implementation
         // Reference impl.
+        #[cfg(feature = "bench")]
         group.bench_with_input(
             BenchmarkId::new("portable/reference", size),
             &data,
@@ -90,12 +98,14 @@ pub fn run_histogram_benchmarks(c: &mut Criterion) {
         group.measurement_time(Duration::from_secs(10));
 
         // Batched impl.
+        #[cfg(feature = "bench")]
         group.bench_with_input(
             BenchmarkId::new("portable/batched_u32", size),
             &data,
             |b, data| b.iter(|| histogram32_generic_batched_u32(black_box(data))),
         );
 
+        #[cfg(feature = "bench")]
         group.bench_with_input(
             BenchmarkId::new("portable/batched_u64", size),
             &data,
@@ -103,6 +113,7 @@ pub fn run_histogram_benchmarks(c: &mut Criterion) {
         );
 
         // Batched impl (unroll 2)
+        #[cfg(feature = "bench")]
         group.bench_with_input(
             BenchmarkId::new("portable/batched/unroll2_u32", size),
             &data,
@@ -110,12 +121,14 @@ pub fn run_histogram_benchmarks(c: &mut Criterion) {
         );
 
         // Batched impl (unroll 2)
+        #[cfg(feature = "bench")]
         group.bench_with_input(
             BenchmarkId::new("portable/batched/unroll2_u64", size),
             &data,
             |b, data| b.iter(|| histogram32_generic_batched_unroll_2_u64(black_box(data))),
         );
         // Batched impl (unroll 4)
+        #[cfg(feature = "bench")]
         group.bench_with_input(
             BenchmarkId::new("portable/batched/unroll4_u32", size),
             &data,
@@ -123,6 +136,7 @@ pub fn run_histogram_benchmarks(c: &mut Criterion) {
         );
 
         // Batched impl (unroll 4)
+        #[cfg(feature = "bench")]
         group.bench_with_input(
             BenchmarkId::new("portable/batched/unroll4_u64", size),
             &data,
@@ -130,6 +144,7 @@ pub fn run_histogram_benchmarks(c: &mut Criterion) {
         );
 
         // NonAliased impl.
+        #[cfg(feature = "bench")]
         group.bench_with_input(
             BenchmarkId::new("portable/nonaliased", size),
             &data,

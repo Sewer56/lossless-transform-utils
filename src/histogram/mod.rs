@@ -11,12 +11,29 @@
 
 pub mod histogram32;
 pub use histogram32::*;
-#[cfg(test)]
-pub mod histogram32_private;
 
 /// The implementation of a generic histogram, storing the for each byte using type `T`.
 /// `T` should be a type that can be incremented.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Histogram<T> {
     pub counter: [T; 256],
+}
+
+#[cfg(any(test, feature = "bench"))]
+pub mod histogram32_private;
+#[cfg(any(test, feature = "bench"))]
+pub use histogram32_private::*;
+
+/// Benchmark only re-exports.
+#[cfg(feature = "bench")]
+pub mod bench {
+    use super::Histogram32;
+
+    pub fn histogram32_generic_batched_unroll_4_u32(bytes: &[u8]) -> Histogram32 {
+        super::histogram32_generic_batched_unroll_4_u32(bytes)
+    }
+
+    pub fn histogram32_reference(bytes: &[u8]) -> Histogram32 {
+        super::histogram32_reference(bytes)
+    }
 }

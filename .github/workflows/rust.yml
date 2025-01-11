@@ -48,7 +48,7 @@ jobs:
           use-pgo: ${{ matrix.use-pgo && env.build-with-pgo }}
           pgo-benchmark-name: histogram
           use-cross: ${{ matrix.use-cross }}
-          features: "c-exports"
+          features: "c-exports,bench"
           build-library: true
           run-tests-and-coverage: true
           codecov-token: ${{ secrets.CODECOV_TOKEN }}

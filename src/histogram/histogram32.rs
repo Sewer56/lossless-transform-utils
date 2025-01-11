@@ -49,7 +49,7 @@ pub fn histogram32_from_bytes(bytes: &[u8]) -> Histogram32 {
     }
 }
 
-pub fn histogram32_generic_batched_unroll_4_u32(bytes: &[u8]) -> Histogram32 {
+pub(crate) fn histogram32_generic_batched_unroll_4_u32(bytes: &[u8]) -> Histogram32 {
     let mut histogram = Histogram32 {
         inner: Histogram { counter: [0; 256] },
     };
@@ -310,7 +310,7 @@ unsafe extern "cdecl" fn process_four_u32_generic(
 
 /// Generic, slower version of [`Histogram32`] generation that doesn't assume anything.
 /// This is the Rust fallback, reference implementation to run other tests against.
-pub fn histogram32_reference(bytes: &[u8]) -> Histogram32 {
+pub(crate) fn histogram32_reference(bytes: &[u8]) -> Histogram32 {
     // 1K on stack, should be good.
     let mut histogram = Histogram32 {
         inner: Histogram { counter: [0; 256] },
