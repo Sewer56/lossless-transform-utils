@@ -14,6 +14,7 @@ pub use histogram32::*;
 
 /// The implementation of a generic histogram, storing the for each byte using type `T`.
 /// `T` should be a type that can be incremented.
+#[repr(C)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Histogram<T> {
     pub counter: [T; 256],

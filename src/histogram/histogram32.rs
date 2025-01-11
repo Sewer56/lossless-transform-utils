@@ -1,3 +1,53 @@
+//! Implementation of a histogram using 32-bit unsigned integers as counters.
+//!
+//! This module provides an efficient for creating a histogram which supplies you
+//! with the byte occurrences in data. It's particularly optimized for
+//! processing large amounts of data quickly.
+//!
+//! # Key Features
+//!
+//! - Fast histogram generation from byte slices
+//! - Optimized for different input sizes and hardware capabilities
+//! - Supports x86 and x86_64 specific optimizations (with nightly Rust)
+//!
+//! # Main Types
+//!
+//! - [Histogram32]: The primary struct representing a histogram with 32-bit counters.
+//!
+//! # Main Functions
+//!
+//! - [`histogram32_from_bytes`]: Efficiently creates a histogram from a byte slice.
+//!
+//! # Examples
+//!
+//! Basic usage:
+//!
+//! ```
+//! use lossless_transform_utils::histogram::histogram32_from_bytes;
+//!
+//! let data = [1, 2, 3, 1, 2, 1];
+//! let histogram = histogram32_from_bytes(&data);
+//!
+//! assert_eq!(histogram.inner.counter[1], 3); // Byte value 1 appears 3 times
+//! assert_eq!(histogram.inner.counter[2], 2); // Byte value 2 appears 2 times
+//! assert_eq!(histogram.inner.counter[3], 1); // Byte value 3 appears 1 time
+//! ```
+//!
+//! # Performance Considerations
+//!
+//! The implementations in this module are optimized for different input sizes:
+//!
+//! - Small inputs (< 64 bytes) use a simple, efficient implementation.
+//! - Larger inputs use batched processing with loop unrolling for better performance.
+//! - On x86_64 and x86 platforms (with nightly Rust), BMI1 instructions are utilized if available.
+//!
+//! Not optimized for non-x86 platforms, as I (Sewer) don't own any hardware.
+//!
+//! # Safety
+//!
+//! While some functions in this module use unsafe code internally for performance reasons,
+//! all public interfaces are safe to use from safe Rust code.
+
 use super::Histogram;
 use core::ops::{Deref, DerefMut};
 
@@ -5,6 +55,7 @@ use core::ops::{Deref, DerefMut};
 ///
 /// Max safe array size to pass is 4,294,967,295, naturally, as a result, though in practice
 /// it can be a bit bigger.
+#[repr(C)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct Histogram32 {
     pub inner: Histogram<u32>,
@@ -32,16 +83,60 @@ impl DerefMut for Histogram32 {
 }
 
 impl Histogram32 {
-    /// Calculates a new histogram given
+    /// This is a shortcut for [`histogram32_from_bytes`]
     pub fn from_bytes(bytes: &[u8]) -> Self {
         histogram32_from_bytes(bytes)
     }
 }
 
-#[inline]
+/// Calculates a new histogram given a byte slice.
+///
+/// This function computes a histogram of byte occurrences in the input slice.
+/// It automatically selects the most efficient implementation based on the
+/// input size and available hardware features.
+///
+/// # Performance
+///
+/// - For small inputs (less than 64 bytes), it uses a simple reference implementation.
+/// - For larger inputs, it uses an optimized implementation with batched processing and loop unrolling.
+/// - On x86_64 and x86 (with nightly feature) platforms, it can utilize BMI1 instructions if available.
+///
+/// Not optimized for non-x86 platforms, as I (Sewer) don't own any hardware.
+///
+/// # Arguments
+///
+/// * [bytes] - A slice of bytes to process.
+///
+/// # Returns
+///
+/// Returns a [Histogram32] struct containing the computed histogram.
+/// Each element in the histogram represents the count of occurrences for a byte value (0-255).
+///
+/// # Example
+///
+/// ```
+/// use lossless_transform_utils::histogram::histogram32_from_bytes;
+///
+/// let data = [1, 2, 3, 1, 2, 1];
+/// let histogram = histogram32_from_bytes(&data);
+///
+/// assert_eq!(histogram.inner.counter[1], 3); // Byte value 1 appears 3 times
+/// assert_eq!(histogram.inner.counter[2], 2); // Byte value 2 appears 2 times
+/// assert_eq!(histogram.inner.counter[3], 1); // Byte value 3 appears 1 time
+/// ```
+///
+/// # Notes
+///
+/// - The function is optimized for different input sizes and hardware capabilities.
+/// - The threshold for switching between implementations (64 bytes) is based on
+///   benchmarks performed on an AMD Ryzen 9 5900X processor. This may vary on different hardware.
+///
+/// # Safety
+///
+/// While this function uses unsafe code internally for performance optimization,
+/// it is safe to call and use from safe Rust code.
 pub fn histogram32_from_bytes(bytes: &[u8]) -> Histogram32 {
     // Obtained by benching on a 5900X. May vary with different hardware.
-    #[allow(clippy::if_same_then_else)]
     if bytes.len() < 64 {
         histogram32_reference(bytes)
     } else {
