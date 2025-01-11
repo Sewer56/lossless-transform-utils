@@ -7,7 +7,11 @@
         "cobertura.xml"
     ],
     "lldb.displayFormat": "hex",
-    "lldb.showDisassembly": "auto",
+    "lldb.showDisassembly": "always",
     "lldb.dereferencePointers": false,
-    "lldb.consoleMode": "commands"
+    "lldb.consoleMode": "commands",
+    "rust-analyzer.server.extraEnv": {
+        // Enable AVX2 in code editor.
+        "RUSTFLAGS": "-Ctarget-feature=+bmi1"
+    },
 }

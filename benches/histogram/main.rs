@@ -1,8 +1,8 @@
 // benches/histogram_benchmark/mod.rs
-pub mod portable;
-use std::fs;
-
+use core::time::Duration;
 use criterion::*;
+pub use lossless_transform_utils::histogram::*;
+use std::fs;
 
 // Payload sizes for benchmarking
 pub const PAYLOAD_SIZES: &[usize] = &[
@@ -65,6 +65,8 @@ pub fn run_histogram_benchmarks(c: &mut Criterion) {
     for &size in PAYLOAD_SIZES {
         let mut group = c.benchmark_group("histogram");
         group.throughput(Throughput::Bytes(size as u64));
+        group.warm_up_time(Duration::from_secs(30));
+        group.measurement_time(Duration::from_secs(30));
         let mut memcpy_buf = vec![0u8; size];
 
         // Prepare test data
@@ -75,21 +77,58 @@ pub fn run_histogram_benchmarks(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("portable/reference", size),
             &data,
-            |b, data| b.iter(|| portable::histogram32_from_bytes_reference(black_box(data))),
+            |b, data| b.iter(|| histogram32_reference(black_box(data))),
         );
+
+        // Finished warmup, now do shorter tests.
+        group.warm_up_time(Duration::from_secs(5));
+        group.measurement_time(Duration::from_secs(10));
 
         // Batched impl.
         group.bench_with_input(
-            BenchmarkId::new("portable/batched", size),
+            BenchmarkId::new("portable/batched_u32", size),
             &data,
-            |b, data| b.iter(|| portable::histogram32_from_bytes_generic_batched(black_box(data))),
+            |b, data| b.iter(|| histogram32_generic_batched_u32(black_box(data))),
+        );
+
+        group.bench_with_input(
+            BenchmarkId::new("portable/batched_u64", size),
+            &data,
+            |b, data| b.iter(|| histogram32_generic_batched_u64(black_box(data))),
+        );
+
+        // Batched impl (unroll 2)
+        group.bench_with_input(
+            BenchmarkId::new("portable/batched/unroll2_u32", size),
+            &data,
+            |b, data| b.iter(|| histogram32_generic_batched_unroll_2_u32(black_box(data))),
+        );
+
+        // Batched impl (unroll 2)
+        group.bench_with_input(
+            BenchmarkId::new("portable/batched/unroll2_u64", size),
+            &data,
+            |b, data| b.iter(|| histogram32_generic_batched_unroll_2_u64(black_box(data))),
+        );
+        // Batched impl (unroll 4)
+        group.bench_with_input(
+            BenchmarkId::new("portable/batched/unroll4_u32", size),
+            &data,
+            |b, data| b.iter(|| histogram32_generic_batched_unroll_4_u32(black_box(data))),
+        );
+
+        // Batched impl (unroll 4)
+        group.bench_with_input(
+            BenchmarkId::new("portable/batched/unroll4_u64", size),
+            &data,
+            |b, data| b.iter(|| histogram32_generic_batched_unroll_4_u64(black_box(data))),
         );
 
         // NonAliased impl.
         group.bench_with_input(
             BenchmarkId::new("portable/nonaliased", size),
             &data,
-            |b, data| b.iter(|| portable::histogram_nonaliased_withruns_core(black_box(data))),
+            |b, data| b.iter(|| histogram_nonaliased_withruns_core(black_box(data))),
         );
 
         // Memcpy
