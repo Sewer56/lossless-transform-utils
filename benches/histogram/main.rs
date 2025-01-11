@@ -4,6 +4,11 @@ use criterion::*;
 pub use lossless_transform_utils::histogram::*;
 use std::fs;
 
+// Private API.
+#[path = "../../src/histogram/histogram32_private.rs"]
+mod histogram32_private;
+use histogram32_private::*;
+
 // Payload sizes for benchmarking
 pub const PAYLOAD_SIZES: &[usize] = &[
     /*

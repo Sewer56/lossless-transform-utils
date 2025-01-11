@@ -11,6 +11,8 @@
 
 pub mod histogram32;
 pub use histogram32::*;
+#[cfg(test)]
+pub mod histogram32_private;
 
 /// The implementation of a generic histogram, storing the for each byte using type `T`.
 /// `T` should be a type that can be incremented.
