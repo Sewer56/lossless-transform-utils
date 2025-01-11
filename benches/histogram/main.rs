@@ -1,6 +1,7 @@
 // benches/histogram_benchmark/mod.rs
 use core::time::Duration;
 use criterion::*;
+#[cfg(feature = "bench")]
 use lossless_transform_utils::histogram::bench::*;
 pub use lossless_transform_utils::histogram::*;
 use std::fs;
