@@ -44,6 +44,13 @@ println!("Entropy: {}", entropy);
 This allows you to estimate how compressible data is by entropy coding step of a compressor;
 more details in the module readme.
 
+The code length in this module favours accuracy rather than performance, so it does
+proper `f64` arithmetic, with `log2`; which is slow in terms of CPU time.
+
+However, because the input histograms only have 256 elements, the accuracy tradeoff for performance
+is considered worthwhile here. The runtime is constant ~900ns per histogram on a 5900X as a point
+of reference.
+
 ## Development
 
 For information on how to work with this codebase, see [README-DEV.MD](README-DEV.MD).

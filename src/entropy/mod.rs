@@ -23,9 +23,11 @@
 //!
 //! # Performance Note
 //!
-//! While these functions are optimized for small histogram sizes, they may not
-//! be the fastest option for high-throughput scenarios. This code was made for a very specific
-//! usa case. If performance is critical, consider using another implementation.
+//! The implementation in this module favours accuracy rather than performance, so it does
+//! proper [f64] arithmetic, with `log2`; which normally is slow.
+//!
+//! However, because the input histograms only have 256 elements, the accuracy tradeoff for performance
+//! is considered worthwhile here.
 
 use crate::histogram::Histogram32;
 
