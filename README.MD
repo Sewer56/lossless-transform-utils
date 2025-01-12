@@ -16,9 +16,11 @@ Calculate the amount of times each byte appears in a dataset.
 
 ```rust
 use lossless_transform_utils::histogram::histogram32_from_bytes;
+use lossless_transform_utils::histogram::Histogram32;
 
 let data = [1, 2, 3, 1, 2, 1];
-let histogram = histogram32_from_bytes(&data);
+let mut histogram = Histogram32::default();
+histogram32_from_bytes(&data, &mut histogram);
 
 assert_eq!(histogram.inner.counter[1], 3); // Byte value 1 appears 3 times
 assert_eq!(histogram.inner.counter[2], 2); // Byte value 2 appears 2 times
@@ -35,7 +37,8 @@ use lossless_transform_utils::entropy::code_length_of_histogram32;
 use lossless_transform_utils::histogram::histogram32_from_bytes;
 
 let data = [1, 2, 3, 1, 2, 1];
-let histogram = histogram32_from_bytes(&data);
+let mut histogram = Histogram32::default();
+histogram32_from_bytes(&data, &mut histogram);
 
 let entropy = code_length_of_histogram32(&histogram, 6);
 println!("Entropy: {}", entropy);

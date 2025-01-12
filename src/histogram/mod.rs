@@ -30,11 +30,11 @@ pub use histogram32_private::*;
 pub mod bench {
     use super::Histogram32;
 
-    pub fn histogram32_generic_batched_unroll_4_u32(bytes: &[u8]) -> Histogram32 {
-        super::histogram32_generic_batched_unroll_4_u32(bytes)
+    pub fn histogram32_generic_batched_unroll_4_u32(bytes: &[u8], histogram: &mut Histogram32) {
+        super::histogram32_generic_batched_unroll_4_u32(bytes, histogram)
     }
 
-    pub fn histogram32_reference(bytes: &[u8]) -> Histogram32 {
-        super::histogram32_reference(bytes)
+    pub fn histogram32_reference(bytes: &[u8], histogram: &mut Histogram32) {
+        super::histogram32_reference(bytes, histogram)
     }
 }

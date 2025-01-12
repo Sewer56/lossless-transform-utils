@@ -40,9 +40,7 @@ pub unsafe extern "C" fn histogram32_from_bytes(
     length: usize,
     hist: *mut Histogram32,
 ) {
-    let bytes = slice::from_raw_parts(data, length);
-    let rust_hist = crate::histogram::histogram32_from_bytes(bytes);
-    (*hist).counter = rust_hist.inner.counter;
+    crate::histogram::histogram32_from_bytes(slice::from_raw_parts(data, length), &mut *hist);
 }
 
 /// Gets the count for a specific byte value from the histogram.

@@ -24,9 +24,11 @@
 //!
 //! ```
 //! use lossless_transform_utils::histogram::histogram32_from_bytes;
+//! use lossless_transform_utils::histogram::Histogram32;
 //!
 //! let data = [1, 2, 3, 1, 2, 1];
-//! let histogram = histogram32_from_bytes(&data);
+//! let mut histogram = Histogram32::default();
+//! histogram32_from_bytes(&data, &mut histogram);
 //!
 //! assert_eq!(histogram.inner.counter[1], 3); // Byte value 1 appears 3 times
 //! assert_eq!(histogram.inner.counter[2], 2); // Byte value 2 appears 2 times
@@ -85,7 +87,9 @@ impl DerefMut for Histogram32 {
 impl Histogram32 {
     /// This is a shortcut for [`histogram32_from_bytes`]
     pub fn from_bytes(bytes: &[u8]) -> Self {
-        histogram32_from_bytes(bytes)
+        let mut histogram = Histogram32::default();
+        histogram32_from_bytes(bytes, &mut histogram);
+        histogram
     }
 }
 
@@ -116,9 +120,11 @@ impl Histogram32 {
 ///
 /// ```
 /// use lossless_transform_utils::histogram::histogram32_from_bytes;
+/// use lossless_transform_utils::histogram::Histogram32;
 ///
 /// let data = [1, 2, 3, 1, 2, 1];
-/// let histogram = histogram32_from_bytes(&data);
+/// let mut histogram = Histogram32::default();
+/// histogram32_from_bytes(&data, &mut histogram);
 ///
 /// assert_eq!(histogram.inner.counter[1], 3); // Byte value 1 appears 3 times
 /// assert_eq!(histogram.inner.counter[2], 2); // Byte value 2 appears 2 times
@@ -135,22 +141,18 @@ impl Histogram32 {
 ///
 /// While this function uses unsafe code internally for performance optimization,
 /// it is safe to call and use from safe Rust code.
-pub fn histogram32_from_bytes(bytes: &[u8]) -> Histogram32 {
+pub fn histogram32_from_bytes(bytes: &[u8], hist: &mut Histogram32) {
     // Obtained by benching on a 5900X. May vary with different hardware.
     if bytes.len() < 64 {
-        histogram32_reference(bytes)
+        histogram32_reference(bytes, hist)
     } else {
-        histogram32_generic_batched_unroll_4_u32(bytes)
+        histogram32_generic_batched_unroll_4_u32(bytes, hist)
     }
 }
 
-pub(crate) fn histogram32_generic_batched_unroll_4_u32(bytes: &[u8]) -> Histogram32 {
-    let mut histogram = Histogram32 {
-        inner: Histogram { counter: [0; 256] },
-    };
-
+pub(crate) fn histogram32_generic_batched_unroll_4_u32(bytes: &[u8], histogram: &mut Histogram32) {
     if bytes.is_empty() {
-        return histogram;
+        return;
     }
 
     unsafe {
@@ -195,8 +197,6 @@ pub(crate) fn histogram32_generic_batched_unroll_4_u32(bytes: &[u8]) -> Histogra
             *histo_ptr.add(byte as usize) += 1;
         }
     }
-
-    histogram
 }
 
 #[inline(never)]
@@ -405,12 +405,7 @@ unsafe extern "cdecl" fn process_four_u32_generic(
 
 /// Generic, slower version of [`Histogram32`] generation that doesn't assume anything.
 /// This is the Rust fallback, reference implementation to run other tests against.
-pub(crate) fn histogram32_reference(bytes: &[u8]) -> Histogram32 {
-    // 1K on stack, should be good.
-    let mut histogram = Histogram32 {
-        inner: Histogram { counter: [0; 256] },
-    };
-
+pub(crate) fn histogram32_reference(bytes: &[u8], histogram: &mut Histogram32) {
     let histo_ptr = histogram.inner.counter.as_mut_ptr();
     let mut current_ptr = bytes.as_ptr();
     let ptr_end = unsafe { current_ptr.add(bytes.len()) };
@@ -424,8 +419,6 @@ pub(crate) fn histogram32_reference(bytes: &[u8]) -> Histogram32 {
             *histo_ptr.add(byte as usize) += 1;
         }
     }
-
-    histogram
 }
 
 #[cfg(test)]
@@ -438,7 +431,8 @@ mod reference_tests {
     #[test]
     fn verify_full_range_in_reference_impl() {
         let input: Vec<u8> = (0..=255).collect();
-        let histogram = histogram32_reference(&input);
+        let mut histogram = Histogram32::default();
+        histogram32_reference(&input, &mut histogram);
 
         // Every value should appear exactly once
         for count in histogram.inner.counter.iter() {
@@ -467,14 +461,16 @@ mod alternative_implementation_tests {
     #[case::batched_unroll4_u32(histogram32_generic_batched_unroll_4_u32)]
     #[case::batched_unroll4_u64(histogram32_generic_batched_unroll_4_u64)]
     #[case::nonaliased_withruns(histogram_nonaliased_withruns_core)]
-    fn test_against_reference(#[case] implementation: fn(&[u8]) -> Histogram32) {
+    fn test_against_reference(#[case] implementation: fn(&[u8], &mut Histogram32)) {
         // Test sizes from 0 to 767 bytes
         for size in 0..=767 {
             let test_data = generate_test_data(size);
 
             // Get results from both implementations
-            let implementation_result = implementation(&test_data);
-            let reference_result = histogram32_reference(&test_data);
+            let mut implementation_result = Histogram32::default();
+            let mut reference_result = Histogram32::default();
+            implementation(&test_data, &mut implementation_result);
+            histogram32_reference(&test_data, &mut reference_result);
 
             assert_eq!(
                 implementation_result.inner.counter, reference_result.inner.counter,

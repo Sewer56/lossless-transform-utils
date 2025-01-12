@@ -21,7 +21,7 @@ const SLICE_SIZE_U32S: usize = 256;
 ///
 /// The reason may be something related to https://www.agner.org/forum/viewtopic.php?t=41 .
 /// I did check the assembly, it's comparable (near identical) to ryg's original.
-pub fn histogram_nonaliased_withruns_core(data: &[u8]) -> Histogram32 {
+pub fn histogram_nonaliased_withruns_core(data: &[u8], histogram_result: &mut Histogram32) {
     // 1K on stack, should be good.
     let mut histogram = [Histogram32::default(); NUM_SLICES];
 
@@ -74,9 +74,9 @@ pub fn histogram_nonaliased_withruns_core(data: &[u8]) -> Histogram32 {
         // Vectorization-friendly summation, LLVM is good at vectorizing this, so there's no need
         // to write this by hand.
         if NUM_SLICES <= 1 {
-            histogram[0]
+            // Copy bytes.
+            *histogram_result = histogram[0]
         } else {
-            let mut result = histogram[0];
             for x in (0..256).step_by(4) {
                 let mut sum0 = 0_u32;
                 let mut sum1 = 0_u32;
@@ -92,13 +92,11 @@ pub fn histogram_nonaliased_withruns_core(data: &[u8]) -> Histogram32 {
                     sum3 += histogram[slice].inner.counter[x + 3];
                 }
 
-                result.inner.counter[x] = sum0;
-                result.inner.counter[x + 1] = sum1;
-                result.inner.counter[x + 2] = sum2;
-                result.inner.counter[x + 3] = sum3;
+                histogram_result.inner.counter[x] = sum0;
+                histogram_result.inner.counter[x + 1] = sum1;
+                histogram_result.inner.counter[x + 2] = sum2;
+                histogram_result.inner.counter[x + 3] = sum3;
             }
-
-            result
         }
     }
 }
@@ -115,12 +113,7 @@ unsafe fn sum8(current_ptr: *mut u32, mut value: u64, increment: u32) {
     }
 }
 
-pub fn histogram32_generic_batched_u32(bytes: &[u8]) -> Histogram32 {
-    // 1K on stack, should be good.
-    let mut histogram = Histogram32 {
-        inner: Histogram { counter: [0; 256] },
-    };
-
+pub fn histogram32_generic_batched_u32(bytes: &[u8], histogram: &mut Histogram32) {
     unsafe {
         let histo_ptr = histogram.inner.counter.as_mut_ptr();
         let mut current_ptr = bytes.as_ptr() as *const u32;
@@ -148,16 +141,10 @@ pub fn histogram32_generic_batched_u32(bytes: &[u8]) -> Histogram32 {
             *histo_ptr.add(byte as usize) += 1;
         }
     }
-
-    histogram
 }
 
-pub fn histogram32_generic_batched_u64(bytes: &[u8]) -> Histogram32 {
+pub fn histogram32_generic_batched_u64(bytes: &[u8], histogram: &mut Histogram32) {
     // 1K on stack, should be good.
-    let mut histogram = Histogram32 {
-        inner: Histogram { counter: [0; 256] },
-    };
-
     unsafe {
         let histo_ptr = histogram.inner.counter.as_mut_ptr();
         let mut current_ptr = bytes.as_ptr() as *const u64;
@@ -189,15 +176,9 @@ pub fn histogram32_generic_batched_u64(bytes: &[u8]) -> Histogram32 {
             *histo_ptr.add(byte as usize) += 1;
         }
     }
-
-    histogram
 }
 
-pub fn histogram32_generic_batched_unroll_2_u64(bytes: &[u8]) -> Histogram32 {
-    let mut histogram = Histogram32 {
-        inner: Histogram { counter: [0; 256] },
-    };
-
+pub fn histogram32_generic_batched_unroll_2_u64(bytes: &[u8], histogram: &mut Histogram32) {
     unsafe {
         let histo_ptr = histogram.inner.counter.as_mut_ptr();
         let mut current_ptr = bytes.as_ptr() as *const u64;
@@ -244,15 +225,9 @@ pub fn histogram32_generic_batched_unroll_2_u64(bytes: &[u8]) -> Histogram32 {
             *histo_ptr.add(byte as usize) += 1;
         }
     }
-
-    histogram
 }
 
-pub fn histogram32_generic_batched_unroll_2_u32(bytes: &[u8]) -> Histogram32 {
-    let mut histogram = Histogram32 {
-        inner: Histogram { counter: [0; 256] },
-    };
-
+pub fn histogram32_generic_batched_unroll_2_u32(bytes: &[u8], histogram: &mut Histogram32) {
     unsafe {
         let histo_ptr = histogram.inner.counter.as_mut_ptr();
         let mut current_ptr = bytes.as_ptr() as *const u32;
@@ -291,15 +266,9 @@ pub fn histogram32_generic_batched_unroll_2_u32(bytes: &[u8]) -> Histogram32 {
             *histo_ptr.add(byte as usize) += 1;
         }
     }
-
-    histogram
 }
 
-pub fn histogram32_generic_batched_unroll_4_u64(bytes: &[u8]) -> Histogram32 {
-    let mut histogram = Histogram32 {
-        inner: Histogram { counter: [0; 256] },
-    };
-
+pub fn histogram32_generic_batched_unroll_4_u64(bytes: &[u8], histogram: &mut Histogram32) {
     unsafe {
         let histo_ptr = histogram.inner.counter.as_mut_ptr();
         let mut current_ptr = bytes.as_ptr() as *const u64;
@@ -368,6 +337,4 @@ pub fn histogram32_generic_batched_unroll_4_u64(bytes: &[u8]) -> Histogram32 {
             *histo_ptr.add(byte as usize) += 1;
         }
     }
-
-    histogram
 }
