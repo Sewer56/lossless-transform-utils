@@ -1,4 +1,3 @@
-// benches/histogram_benchmark/mod.rs
 use core::time::Duration;
 use criterion::*;
 #[cfg(feature = "bench")]
@@ -53,11 +52,13 @@ pub fn generate_test_data(size: usize) -> Vec<u8> {
 use pprof::criterion::{Output, PProfProfiler};
 
 #[cfg(not(target_os = "windows"))]
+#[allow(dead_code)]
 pub fn get_benchmark_config() -> Criterion {
     Criterion::default().with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)))
 }
 
 #[cfg(target_os = "windows")]
+#[allow(dead_code)]
 pub fn get_benchmark_config() -> Criterion {
     Criterion::default()
 }

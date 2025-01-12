@@ -1,4 +1,3 @@
-// benches/histogram_benchmark/mod.rs
 use criterion::*;
 pub use lossless_transform_utils::entropy::*;
 pub use lossless_transform_utils::histogram::*;
@@ -8,12 +7,14 @@ pub use lossless_transform_utils::histogram::*;
 use pprof::criterion::{Output, PProfProfiler};
 
 #[cfg(not(target_os = "windows"))]
-pub fn get_benchmark_config() -> Criterion {
+#[allow(dead_code)]
+pub(crate) fn get_benchmark_config() -> Criterion {
     Criterion::default().with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)))
 }
 
 #[cfg(target_os = "windows")]
-pub fn get_benchmark_config() -> Criterion {
+#[allow(dead_code)]
+pub(crate) fn get_benchmark_config() -> Criterion {
     Criterion::default()
 }
 

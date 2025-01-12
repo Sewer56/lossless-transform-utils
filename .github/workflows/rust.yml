@@ -46,9 +46,9 @@ jobs:
           crate-name: ${{ github.event.repository.name }}
           target: ${{ matrix.target }}
           use-pgo: ${{ matrix.use-pgo && env.build-with-pgo }}
-          pgo-benchmark-name: histogram
+          pgo-benchmark-name: all
           use-cross: ${{ matrix.use-cross }}
-          features: "c-exports,bench"
+          features: "c-exports,bench,nightly"
           build-library: true
           run-tests-and-coverage: true
           codecov-token: ${{ secrets.CODECOV_TOKEN }}

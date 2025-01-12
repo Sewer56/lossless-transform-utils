@@ -54,3 +54,8 @@ harness = false
 name = "entropy"
 path = "benches/entropy/main.rs"
 harness = false
+
+[[bench]]
+name = "all"
+path = "benches/all/main.rs"
+harness = false
