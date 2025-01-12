@@ -1,5 +1,5 @@
 use crate::histogram::Histogram32;
-use std::slice;
+use core::slice;
 
 /// Calculates a new histogram given a byte slice.
 ///

@@ -10,9 +10,11 @@ readme = "README.MD"
 
 [features]
 default = ["std"]
+# Enables x86 CPU feature detection.
 std = []
 # See README.md for more information on using Profile-Guided Optimization.
 # This enables some extra benches (conditionally) to gather profiling data.
+# Right now it's a no-op.
 pgo = []
 # Feature for enabling C library exports.
 c-exports = []

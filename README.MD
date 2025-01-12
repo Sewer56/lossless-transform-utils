@@ -54,6 +54,20 @@ However, because the input histograms only have 256 elements, the accuracy trade
 is considered worthwhile here. The runtime is constant ~900ns per histogram on a 5900X as a point
 of reference.
 
+## Crate Features
+
+- `std` [default]: Enables x86 CPU feature detection.
+    - Because x86 feature detection is implemented via CPU instruction, you can use
+      the `std` feature in a `no_std` environment. It's just that the API needed
+      here isn't available in `no_std` environments.
+- `c-exports`: Builds the library with C exports for the public APIs.
+- `nightly`: Enables x86 acceleration for `histogram32` creation (requires naked ASM).
+- `bench`: Enable benchmarks for non-public API items.
+
+These exist but are currently unused:
+
+- `pgo`: Additional workloads for profile guided optimization in the `all` benchmark project.
+
 ## Development
 
 For information on how to work with this codebase, see [README-DEV.MD](README-DEV.MD).

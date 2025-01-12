@@ -166,7 +166,7 @@ pub(crate) fn histogram32_generic_batched_unroll_4_u32(bytes: &[u8], histogram: 
             .add(bytes.len() & !(4 * size_of::<u32>() - 1))
             as *const u32;
 
-        #[cfg(target_arch = "x86_64")]
+        #[cfg(all(target_arch = "x86_64", feature = "std"))]
         if std::is_x86_feature_detected!("bmi1") {
             if current_ptr < ptr_end_unroll {
                 process_four_u32_bmi(histo_ptr, &mut current_ptr, ptr_end_unroll);
@@ -175,7 +175,7 @@ pub(crate) fn histogram32_generic_batched_unroll_4_u32(bytes: &[u8], histogram: 
             process_four_u32_generic(histo_ptr, &mut current_ptr, ptr_end_unroll);
         }
 
-        #[cfg(all(target_arch = "x86", feature = "nightly"))]
+        #[cfg(all(target_arch = "x86", feature = "nightly", feature = "std"))]
         if std::is_x86_feature_detected!("bmi1") {
             if current_ptr < ptr_end_unroll {
                 process_four_u32_bmi(histo_ptr, &mut current_ptr, ptr_end_unroll);
@@ -184,7 +184,10 @@ pub(crate) fn histogram32_generic_batched_unroll_4_u32(bytes: &[u8], histogram: 
             process_four_u32_generic(histo_ptr, &mut current_ptr, ptr_end_unroll);
         }
 
-        #[cfg(not(any(target_arch = "x86_64", all(target_arch = "x86", feature = "nightly"))))]
+        #[cfg(not(any(
+            all(target_arch = "x86_64", feature = "std"),
+            all(target_arch = "x86", feature = "nightly", feature = "std")
+        )))]
         if current_ptr < ptr_end_unroll {
             process_four_u32_generic(histo_ptr, &mut current_ptr, ptr_end_unroll);
         }
@@ -207,7 +210,7 @@ unsafe fn process_four_u32_bmi(
     values_ptr: &mut *const u32,
     ptr_end_unroll: *const u32,
 ) {
-    std::arch::asm!(
+    core::arch::asm!(
         // Main loop
         "push rbp",
         "2:",
@@ -285,7 +288,7 @@ unsafe extern "stdcall" fn process_four_u32_bmi(
     values_ptr: &mut *const u32,
     ptr_end_unroll: *const u32,
 ) {
-    std::arch::naked_asm!(
+    core::arch::naked_asm!(
         // Prologue - save registers
         "push ebp",
         "push ebx",
