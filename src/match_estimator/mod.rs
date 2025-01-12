@@ -42,8 +42,23 @@ const GOLDEN_RATIO: u32 = 0x9E3779B1_u32;
 //
 // # What does testing say?
 //
-// On my 5900X with 32K of L1, using a HASH_BITS == 14 == 32K table yields optimal results.
-// Oddly, using smaller tables yields in a slowdown; until you get to the tiny tables (<= 8 bits).
+// On my 5900X with 32K of L1, using a HASH_BITS == 14 == 32K table (of u16s) yields optimal results
+// for the u16 type. However, I decided to extend to the `u32` type, meaning that we use up 64K
+// of L1.
+//
+// When table fits in L1 cache, doing compares with u32(s) is faster (any data):
+// - u16 -> 1.45GiB/s
+// - u32 -> 1.77GiB/s
+//
+// This is because we can reuse hash as value, no shift is needed, less data dependency.
+//
+// However, because we overrun the L1 cache, we do suffer a speed penalty (HASH_BITS == 14):
+// - u32, Random Data -> 1.48GiB/s
+// - u32, Repeating Data -> 1.77GiB/s
+//
+// When data is compressible, penalty is less. When not compressible, it is more.
+// For exact numbers, run benchmark.
+// In any case, it is still faster, AND more accurate, because we compare more bits; it's a win-win.
 //
 // # When to change this value?
 //
@@ -51,8 +66,7 @@ const GOLDEN_RATIO: u32 = 0x9E3779B1_u32;
 // happen for quite a while.
 //
 // Fun, semi-related reading: https://en.algorithmica.org/hpc/cpu-cache/associativity/#hardware-caches
-const HASH_BITS: usize = 14; // 2^14 = 16k (of u16s) == 32KBytes
-const SHIFT_BITS: usize = max(16, HASH_BITS); // Shift at least 16, because it's cheaper.
+const HASH_BITS: usize = 14; // 2^14 = 16k (of u32s) == 64KBytes
 const HASH_SIZE: usize = 1 << HASH_BITS;
 const HASH_MASK: u32 = (HASH_SIZE - 1) as u32;
 
@@ -109,26 +123,18 @@ pub fn estimate_num_lz_matches_fast(bytes: &[u8]) -> usize {
             let index2 = (h2 & HASH_MASK) as usize;
             let index3 = (h3 & HASH_MASK) as usize;
 
-            // Use next 16 bits for the stored value
-            // Because this distribution is fairly uniform (it's a hash),
-            // we can really use any bits, just happens that last 16 is easiest.
-            let value0 = (h0 >> SHIFT_BITS) as u32;
-            let value1 = (h1 >> SHIFT_BITS) as u32;
-            let value2 = (h2 >> SHIFT_BITS) as u32;
-            let value3 = (h3 >> SHIFT_BITS) as u32;
-
             // Increment matches if the 16-bit data at the table matches
             // (which indicates a very likely LZ match)
-            matches += (hash_table[index0] == value0) as usize;
-            matches += (hash_table[index1] == value1) as usize;
-            matches += (hash_table[index2] == value2) as usize;
-            matches += (hash_table[index3] == value3) as usize;
+            matches += (hash_table[index0] == h0) as usize;
+            matches += (hash_table[index1] == h1) as usize;
+            matches += (hash_table[index2] == h2) as usize;
+            matches += (hash_table[index3] == h3) as usize;
 
             // Update the data at the given index.
-            hash_table[index0] = value0;
-            hash_table[index1] = value1;
-            hash_table[index2] = value2;
-            hash_table[index3] = value3;
+            hash_table[index0] = h0;
+            hash_table[index1] = h1;
+            hash_table[index2] = h2;
+            hash_table[index3] = h3;
 
             begin_ptr = begin_ptr.add(4);
         }
@@ -152,12 +158,4 @@ pub fn hash_u32(value: u32) -> u32 {
 #[inline(always)]
 pub unsafe fn read_3_byte_le_unaligned(ptr: *const u8, offset: usize) -> u32 {
     (ptr.add(offset) as *const u32).read_unaligned().to_le() & 0xFFFFFF
-}
-
-const fn max(a: usize, b: usize) -> usize {
-    if a > b {
-        a
-    } else {
-        b
-    }
 }
