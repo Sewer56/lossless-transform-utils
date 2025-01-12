@@ -86,12 +86,11 @@ const HASH_MASK: u32 = (HASH_SIZE - 1) as u32;
 /// # Remarks
 ///
 /// This function is optimized around more modern speedy LZ compressors; namely, those which
-/// match 3 or more bytes at a time. This logic does not detect for 2 byte matches, so certain
-/// patterns are not detected.
+/// match 3 or more bytes at a time. This logic can however be adjusted for 2 and 4 byte matches.
+/// For those, you would make separate methods; as to keep the mask at read time known at compile time.
 ///
-/// For a 2 byte implementation, could bootstrap this:
-/// https://github.com/Sewer56/prs-rs/blob/1b20890655ba9a0c652d2095a463e5cd4c35a3f9/src/impls/comp/comp_dict.rs#L20
-/// original implementation of mine.
+/// Do note that this is an estimator; it is not an exact number; but the number should be accurate-ish
+/// given that we use 32-bit hashes (longer than 24-bit source).
 pub fn estimate_num_lz_matches_fast(bytes: &[u8]) -> usize {
     // This table stores 3 byte hashes, each hash is transformed
     // via the hash3 function.
@@ -116,6 +115,7 @@ pub fn estimate_num_lz_matches_fast(bytes: &[u8]) -> usize {
             let h1 = hash_u32(read_3_byte_le_unaligned(begin_ptr, 1));
             let h2 = hash_u32(read_3_byte_le_unaligned(begin_ptr, 2));
             let h3 = hash_u32(read_3_byte_le_unaligned(begin_ptr, 3));
+            begin_ptr = begin_ptr.add(4);
 
             // Use HASH_MASK bits for index into HASH_SIZE table
             let index0 = (h0 & HASH_MASK) as usize;
@@ -123,7 +123,7 @@ pub fn estimate_num_lz_matches_fast(bytes: &[u8]) -> usize {
             let index2 = (h2 & HASH_MASK) as usize;
             let index3 = (h3 & HASH_MASK) as usize;
 
-            // Increment matches if the 16-bit data at the table matches
+            // Increment matches if the 32-bit data at the table matches
             // (which indicates a very likely LZ match)
             matches += (hash_table[index0] == h0) as usize;
             matches += (hash_table[index1] == h1) as usize;
@@ -135,8 +135,6 @@ pub fn estimate_num_lz_matches_fast(bytes: &[u8]) -> usize {
             hash_table[index1] = h1;
             hash_table[index2] = h2;
             hash_table[index3] = h3;
-
-            begin_ptr = begin_ptr.add(4);
         }
     }
 
