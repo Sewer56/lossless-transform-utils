@@ -10,14 +10,14 @@
 //!
 //! ```
 //! use lossless_transform_utils::histogram::Histogram32;
-//! use lossless_transform_utils::entropy::shannon_entropy;
+//! use lossless_transform_utils::entropy::code_length_of_histogram32;
 //!
 //! let mut histogram = Histogram32::default();
 //! histogram.inner.counter[0] = 3;
 //! histogram.inner.counter[1] = 2;
 //! histogram.inner.counter[2] = 1;
 //!
-//! let entropy = shannon_entropy(&histogram, 6);
+//! let entropy = code_length_of_histogram32(&histogram, 6);
 //! println!("Entropy: {}", entropy);
 //! ```
 //!
@@ -29,7 +29,7 @@
 
 use crate::histogram::Histogram32;
 
-/// Calculates the Shannon entropy of a histogram using floating point arithmetic.
+/// Calculates the Shannon entropy of a [Histogram32] using floating point arithmetic.
 /// The entropy is the average number of bits needed to represent each symbol.
 ///
 /// This lets us estimate how compressible the data is during 'entropy coding' steps.
@@ -47,14 +47,14 @@ use crate::histogram::Histogram32;
 ///
 /// ```
 /// use lossless_transform_utils::histogram::Histogram32;
-/// use lossless_transform_utils::entropy::shannon_entropy;
+/// use lossless_transform_utils::entropy::shannon_entropy_of_histogram32;
 ///
 /// let mut histogram = Histogram32::default();
 /// histogram.inner.counter[0] = 3;
 /// histogram.inner.counter[1] = 2;
 /// histogram.inner.counter[2] = 1;
 ///
-/// let entropy = shannon_entropy(&histogram, 6);
+/// let entropy = shannon_entropy_of_histogram32(&histogram.counter, 6);
 /// println!("Entropy: {}", entropy);
 /// ```
 ///
@@ -62,8 +62,7 @@ use crate::histogram::Histogram32;
 ///
 /// - This implementation prioritizes accuracy over performance for small histograms (256 elements).
 /// - For high-throughput scenarios, consider using more optimized methods if performance is critical.
-#[no_mangle]
-pub fn shannon_entropy(histogram: &Histogram32, total: u64) -> f64 {
+pub fn shannon_entropy_of_histogram32(counter: &[u32; 256], total: u64) -> f64 {
     // Pseudocode for Shannon Entropy 'the proper way':
     //
     // double entropy = 0.0;
@@ -75,15 +74,15 @@ pub fn shannon_entropy(histogram: &Histogram32, total: u64) -> f64 {
     // }
 
     let total = total as f64;
-    if histogram.counter.iter().all(|&x| x > 0) {
-        shannon_entropy_fast(&histogram.counter, total)
+    if counter.iter().all(|&x| x > 0) {
+        shannon_entropy_of_histogram32_fast(counter, total)
     } else {
-        shannon_entropy_slow(&histogram.counter, total)
+        shannon_entropy_of_histogram32_slow(counter, total)
     }
 }
 
-#[inline(never)]
-fn shannon_entropy_fast(counter: &[u32; 256], total: f64) -> f64 {
+#[inline(always)]
+fn shannon_entropy_of_histogram32_fast(counter: &[u32; 256], total: f64) -> f64 {
     let mut entropy0 = 0.0;
     let mut entropy1 = 0.0;
     let mut entropy2 = 0.0;
@@ -105,7 +104,7 @@ fn shannon_entropy_fast(counter: &[u32; 256], total: f64) -> f64 {
 }
 
 #[inline(always)]
-fn shannon_entropy_slow(counter: &[u32; 256], total: f64) -> f64 {
+fn shannon_entropy_of_histogram32_slow(counter: &[u32; 256], total: f64) -> f64 {
     let mut entropy = 0.0;
     for count in counter {
         if *count == 0 {
@@ -121,18 +120,18 @@ fn shannon_entropy_slow(counter: &[u32; 256], total: f64) -> f64 {
 /// Calculates the ideal code length in bits for a given histogram.
 /// This lets us estimate how compressible the data is during 'entropy coding' steps.
 ///
-/// See [`shannon_entropy`] for more details; this is just a wrapper around that function.
-pub fn code_length_no_size(histogram: &Histogram32) -> f64 {
+/// See [`shannon_entropy_of_histogram32`] for more details; this is just a wrapper around that function.
+pub fn code_length_of_histogram32_no_size(histogram: &Histogram32) -> f64 {
     let total: u64 = histogram.counter.iter().map(|&x| x as u64).sum();
-    code_length(histogram, total)
+    code_length_of_histogram32(histogram, total)
 }
 
 /// Calculates the ideal code length in bits for a given histogram.
 /// This lets us estimate how compressible the data is during 'entropy coding' steps.
 ///
-/// See [`shannon_entropy`] for more details; this is just a wrapper around that function.
-pub fn code_length(histogram: &Histogram32, total: u64) -> f64 {
-    shannon_entropy(histogram, total)
+/// See [`shannon_entropy_of_histogram32`] for more details; this is just a wrapper around that function.
+pub fn code_length_of_histogram32(histogram: &Histogram32, total: u64) -> f64 {
+    shannon_entropy_of_histogram32(&histogram.counter, total)
 }
 
 #[cfg(test)]
@@ -150,7 +149,7 @@ mod tests {
 
         // For uniform distribution of 4 different values, entropy should be 2.0 bits
         // Because log2(4) = 2 bits needed to encode 4 equally likely possibilities
-        assert!((shannon_entropy(&hist, total) - 2.0).abs() < 1e-10);
+        assert!((code_length_of_histogram32(&hist, total) - 2.0).abs() < 1e-10);
     }
 
     #[test]
@@ -159,7 +158,7 @@ mod tests {
         let total = 4;
 
         // For single value distribution, entropy should be 0 bits
-        assert!(shannon_entropy(&hist, total).abs() < 1e-10);
+        assert!(code_length_of_histogram32(&hist, total).abs() < 1e-10);
     }
 
     #[test]
@@ -168,7 +167,7 @@ mod tests {
         let total = 4;
 
         // For 50-50 binary distribution, entropy should be 1.0 bit
-        assert!((shannon_entropy(&hist, total) - 1.0).abs() < 1e-10);
+        assert!((code_length_of_histogram32(&hist, total) - 1.0).abs() < 1e-10);
     }
 
     #[test]
@@ -179,21 +178,13 @@ mod tests {
         // For p=[0.75, 0.25] distribution:
         // -0.75*log2(0.75) - 0.25*log2(0.25) ≈ 0.811278124459
         let expected = 0.811278124459;
-        assert!((shannon_entropy(&hist, total) - expected).abs() < 1e-10);
+        assert!((code_length_of_histogram32(&hist, total) - expected).abs() < 1e-10);
     }
 
     #[test]
     fn with_empty_histogram() {
         let hist = Histogram32::from_bytes(&[]);
-        assert!((shannon_entropy(&hist, 0) - 0.0).abs() < 1e-10);
-    }
-
-    #[test]
-    fn code_length_matches_entropy() {
-        let hist = Histogram32::from_bytes(&[0, 0, 0, 1]);
-        let total = 4;
-
-        assert!((code_length(&hist, total) - shannon_entropy(&hist, total)).abs() < 1e-10);
+        assert!((code_length_of_histogram32(&hist, 0) - 0.0).abs() < 1e-10);
     }
 
     #[test]
@@ -201,7 +192,11 @@ mod tests {
         let hist = Histogram32::from_bytes(&[0, 0, 0, 1]);
         let total = 4;
 
-        assert!((code_length_no_size(&hist) - code_length(&hist, total)).abs() < 1e-10);
+        assert!(
+            (code_length_of_histogram32_no_size(&hist) - code_length_of_histogram32(&hist, total))
+                .abs()
+                < 1e-10
+        );
     }
 
     #[test]
@@ -215,8 +210,8 @@ mod tests {
         let hist = Histogram32::from_bytes(&data);
 
         // Test non-zero case
-        let fast = shannon_entropy_fast(&hist.counter, total as f64);
-        let slow = shannon_entropy_slow(&hist.counter, total as f64);
+        let fast = shannon_entropy_of_histogram32_fast(&hist.counter, total as f64);
+        let slow = shannon_entropy_of_histogram32_slow(&hist.counter, total as f64);
 
         assert!(
             (fast - slow).abs() < 1e-10,

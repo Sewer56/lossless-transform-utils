@@ -22,21 +22,25 @@ pub(crate) fn get_benchmark_config() -> Criterion {
 pub fn run_entropy_benchmarks(c: &mut Criterion) {
     const SIZE: usize = 8388608;
 
+    let mut group = c.benchmark_group("entropy");
+    group.throughput(Throughput::Elements(1));
+
     // Generate test data - incrementing integers
     let data: Vec<u8> = (0..SIZE).map(|i| i as u8).collect();
 
     // Create histogram for the test data
     let histogram = Histogram32::from_bytes(&data);
 
-    // Benchmark shannon_entropy
     // The speed of this should be constant; because the input histogram size is constant.
-    c.bench_with_input(
-        BenchmarkId::new("shannon_entropy", SIZE),
+    group.bench_with_input(
+        BenchmarkId::new("code_length_of_histogram32", SIZE),
         &histogram,
         |b, hist| {
-            b.iter(|| shannon_entropy(black_box(hist), SIZE as u64));
+            b.iter(|| code_length_of_histogram32(black_box(hist), SIZE as u64));
         },
     );
+
+    group.finish();
 }
 
 criterion_group! {

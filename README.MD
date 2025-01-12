@@ -25,6 +25,25 @@ assert_eq!(histogram.inner.counter[2], 2); // Byte value 2 appears 2 times
 assert_eq!(histogram.inner.counter[3], 1); // Byte value 3 appears 1 time
 ```
 
+### Entropy
+
+Calculates the entropy (ideal code length) for a given histogram.
+
+```rust
+use lossless_transform_utils::histogram::Histogram32;
+use lossless_transform_utils::entropy::code_length_of_histogram32;
+use lossless_transform_utils::histogram::histogram32_from_bytes;
+
+let data = [1, 2, 3, 1, 2, 1];
+let histogram = histogram32_from_bytes(&data);
+
+let entropy = code_length_of_histogram32(&histogram, 6);
+println!("Entropy: {}", entropy);
+```
+
+This allows you to estimate how compressible data is by entropy coding step of a compressor;
+more details in the module readme.
+
 ## Development
 
 For information on how to work with this codebase, see [README-DEV.MD](README-DEV.MD).

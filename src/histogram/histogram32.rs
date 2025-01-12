@@ -105,7 +105,7 @@ impl Histogram32 {
 ///
 /// # Arguments
 ///
-/// * [bytes] - A slice of bytes to process.
+/// * `bytes` - A slice of bytes to process.
 ///
 /// # Returns
 ///
