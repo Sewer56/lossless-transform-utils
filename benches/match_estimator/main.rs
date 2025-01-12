@@ -1,0 +1,75 @@
+use criterion::*;
+pub use lossless_transform_utils::entropy::*;
+pub use lossless_transform_utils::histogram::*;
+use lossless_transform_utils::match_estimator::estimate_num_lz_matches_fast;
+
+// Benchmark group configuration
+#[cfg(not(target_os = "windows"))]
+use pprof::criterion::{Output, PProfProfiler};
+
+#[cfg(not(target_os = "windows"))]
+#[allow(dead_code)]
+pub(crate) fn get_benchmark_config() -> Criterion {
+    Criterion::default().with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)))
+}
+
+#[cfg(target_os = "windows")]
+#[allow(dead_code)]
+pub(crate) fn get_benchmark_config() -> Criterion {
+    Criterion::default()
+}
+
+// Main benchmark function
+pub fn run_match_estimator_benchmarks(c: &mut Criterion) {
+    const SIZE: usize = 8388608;
+
+    let mut group = c.benchmark_group("match_estimator");
+    group.throughput(Throughput::Bytes(SIZE as u64));
+
+    {
+        // Generate test data - random integers
+        let random_data: Vec<u8> = {
+            let mut state: u32 = 12345; // seed
+            (0..SIZE)
+                .map(|_| {
+                    // LCG parameters from numerical recipes
+                    state = state.wrapping_mul(1664525).wrapping_add(1013904223);
+                    (state >> 24) as u8 // Take the highest 8 bits
+                })
+                .collect()
+        };
+
+        // Pseudorandom data, with equal distribution. Least possible number of matches.
+        group.bench_with_input(
+            BenchmarkId::new("random_data", SIZE),
+            &random_data,
+            |b, random_data| {
+                b.iter(|| estimate_num_lz_matches_fast(black_box(random_data)));
+            },
+        );
+    }
+
+    {
+        // Generate test data - repeated integers (match every 255)
+        let repeated_data: Vec<u8> = (0..SIZE).map(|x| x as u8).collect();
+
+        // Pseudorandom data, with equal distribution. Least possible number of matches.
+        group.bench_with_input(
+            BenchmarkId::new("repeated_data", SIZE),
+            &repeated_data,
+            |b, repeated_data| {
+                b.iter(|| estimate_num_lz_matches_fast(black_box(repeated_data)));
+            },
+        );
+    }
+
+    group.finish();
+}
+
+criterion_group! {
+    name = benches;
+    config = get_benchmark_config();
+    targets = run_match_estimator_benchmarks
+}
+
+criterion_main!(benches);

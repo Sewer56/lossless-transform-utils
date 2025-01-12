@@ -58,6 +58,11 @@ path = "benches/entropy/main.rs"
 harness = false
 
 [[bench]]
+name = "match_estimator"
+path = "benches/match_estimator/main.rs"
+harness = false
+
+[[bench]]
 name = "all"
 path = "benches/all/main.rs"
 harness = false

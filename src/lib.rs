@@ -10,3 +10,4 @@ extern crate std;
 
 pub mod entropy;
 pub mod histogram;
+pub mod match_estimator;
