@@ -6,8 +6,8 @@
     "coverage-gutters.coverageFileNames": [
         "cobertura.xml"
     ],
-    "lldb.displayFormat": "hex",
-    "lldb.showDisassembly": "always",
+    "lldb.displayFormat": "auto",
+    "lldb.showDisassembly": "auto",
     "lldb.dereferencePointers": false,
     "lldb.consoleMode": "commands",
     "rust-analyzer.server.extraEnv": {

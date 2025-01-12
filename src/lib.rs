@@ -8,4 +8,5 @@ pub mod exports;
 #[cfg(feature = "std")]
 extern crate std;
 
+pub mod entropy;
 pub mod histogram;

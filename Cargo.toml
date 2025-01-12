@@ -49,3 +49,8 @@ panic = "abort"
 name = "histogram"
 path = "benches/histogram/main.rs"
 harness = false
+
+[[bench]]
+name = "entropy"
+path = "benches/entropy/main.rs"
+harness = false
