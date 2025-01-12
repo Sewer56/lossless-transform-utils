@@ -33,25 +33,23 @@ use std::slice;
 ///
 /// # Safety
 ///
-/// This function assumes the provided address and length are valid.
+/// This function assumes the provided address, length and histogram are valid.
 #[no_mangle]
 pub unsafe extern "C" fn histogram32_from_bytes(
     data: *const u8,
     length: usize,
     hist: *mut Histogram32,
 ) {
-    if !data.is_null() && !hist.is_null() {
-        let bytes = slice::from_raw_parts(data, length);
-        let rust_hist = crate::histogram::histogram32_from_bytes(bytes);
-        (*hist).counter = rust_hist.inner.counter;
-    }
+    let bytes = slice::from_raw_parts(data, length);
+    let rust_hist = crate::histogram::histogram32_from_bytes(bytes);
+    (*hist).counter = rust_hist.inner.counter;
 }
 
 /// Gets the count for a specific byte value from the histogram.
 ///
 /// # Safety
 ///
-/// The caller must ensure `hist` points to a valid `Histogram32` struct.
+/// The caller must ensure `hist` points to a valid [`Histogram32`] struct.
 ///
 /// # Remarks
 ///
@@ -59,9 +57,6 @@ pub unsafe extern "C" fn histogram32_from_bytes(
 /// too.
 #[no_mangle]
 pub unsafe extern "C" fn histogram32_get_count(hist: *const Histogram32, byte: u8) -> u32 {
-    if hist.is_null() {
-        return 0;
-    }
     (*hist).counter[byte as usize]
 }
 
@@ -69,7 +64,7 @@ pub unsafe extern "C" fn histogram32_get_count(hist: *const Histogram32, byte: u
 ///
 /// # Safety
 ///
-/// The caller must ensure `hist` points to a valid `Histogram32` struct.
+/// The caller must ensure `hist` points to a valid [`Histogram32`] struct.
 /// The returned pointer is valid as long as the histogram exists and is not modified.
 ///
 /// # Remarks
@@ -78,8 +73,79 @@ pub unsafe extern "C" fn histogram32_get_count(hist: *const Histogram32, byte: u
 /// too.
 #[no_mangle]
 pub unsafe extern "C" fn histogram32_get_counts(hist: *const Histogram32) -> *const u32 {
-    if hist.is_null() {
-        return core::ptr::null();
-    }
     (*hist).counter.as_ptr()
+}
+
+/// Calculates the Shannon entropy of a histogram using floating point arithmetic.
+/// The entropy is the average number of bits needed to represent each symbol.
+///
+/// This lets us estimate how compressible the data is during 'entropy coding' steps.
+///
+/// # Arguments
+///
+/// * `hist` - A pointer to a [Histogram32] containing symbol counts
+/// * `total` - The total count of all symbols
+///
+/// # Returns
+///
+/// The Shannon entropy in bits. i.e. the average number of bits needed to represent each symbol
+///
+/// # Safety
+///
+/// The caller must ensure `hist` points to a valid [`Histogram32`] struct.
+/// This API does not validate this, passing a null pointer will crash the program.
+///
+/// # Notes
+///
+/// - This implementation prioritizes accuracy over performance for small histograms (256 elements).
+/// - For high-throughput scenarios, consider using more optimized methods if performance is critical.
+#[no_mangle]
+pub unsafe extern "C" fn shannon_entropy_of_histogram32(
+    hist: *const Histogram32,
+    total: u64,
+) -> f64 {
+    crate::entropy::shannon_entropy_of_histogram32(&(*hist).counter, total)
+}
+
+/// Calculates the ideal code length in bits for a given histogram.
+/// This lets us estimate how compressible the data is during 'entropy coding' steps.
+///
+/// # Arguments
+///
+/// * `hist` - A pointer to a [Histogram32] containing symbol counts
+/// * `total` - The total count of all symbols (total bytes in input data fed to histogram)
+///
+/// # Returns
+///
+/// The ideal code length in bits
+///
+/// # Safety
+///
+/// The caller must ensure `hist` points to a valid [`Histogram32`] struct.
+/// This API does not validate this, passing a null pointer will crash the program.
+#[no_mangle]
+pub unsafe extern "C" fn code_length_of_histogram32(hist: *const Histogram32, total: u64) -> f64 {
+    crate::entropy::code_length_of_histogram32(&(*hist), total)
+}
+
+/// Calculates the ideal code length in bits for a given histogram.
+/// This lets us estimate how compressible the data is during 'entropy coding' steps.
+///
+/// Unlike [code_length_of_histogram32], this function calculates the total internally.
+///
+/// # Arguments
+///
+/// * `hist` - A pointer to a [Histogram32] containing symbol counts
+///
+/// # Returns
+///
+/// The ideal code length in bits
+///
+/// # Safety
+///
+/// The caller must ensure `hist` points to a valid [`Histogram32`] struct.
+/// This API does not validate this, passing a null pointer will crash the program.
+#[no_mangle]
+pub unsafe extern "C" fn code_length_of_histogram32_no_size(hist: *const Histogram32) -> f64 {
+    crate::entropy::code_length_of_histogram32_no_size(&(*hist))
 }
