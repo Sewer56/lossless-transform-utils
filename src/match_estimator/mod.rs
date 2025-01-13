@@ -176,6 +176,8 @@ mod tests {
 
     use super::*;
     use core::slice;
+    use std::borrow::ToOwned;
+    use std::format;
     use std::vec::Vec;
     use std::{println, vec};
 
@@ -221,53 +223,45 @@ mod tests {
         );
     }
 
-    /// A test to assert the quality of the estimate.
-    /// This tests the 'error' of our estimation.
-    #[test]
-    fn with_no_repetition_should_have_no_matches_128k() {
-        // Misc note: 128K is a nice range to test, as this is the zstd block size when not in long mode,
-        // and a bit larger than Deflate.
-        const EXPECTED: usize = ((1 << 17) as f32 * 0.001f32) as usize; // 0.1% margin of error
+    #[rstest]
+    #[case(1 << 17, 0.001)] // 128K data (zstd block size), 0.1% error margin
+    #[case(16777215, 0.001)] // 16.8MiB data, 0.1% error margin
+    fn with_no_repetition_should_have_no_matches(
+        #[case] test_size: usize,
+        #[case] allowed_error: f32,
+    ) {
+        let expected = (test_size as f32 * allowed_error) as usize;
 
-        // Create sequence with no repetitions
-        // 128K of test data. Across 16K (currently) sized hash table of u32s
-        let unique: Vec<u16> = (0..u16::MAX).collect();
-
-        // There should actually be 0 matches, but there's a tiny chance for error.
-        // If this test trips with 1/2 matches, this is still ok.
-        let matches = estimate_num_lz_matches_fast(cast_u16_slice_to_u8_slice(&unique));
-        assert!(
-            matches < EXPECTED,
-            "Sequence with no repetitions should have very few matches"
-        );
-        println!(
-            "[res:no_matches_128k] matches: {}, expected: < {}",
-            matches, EXPECTED
-        ); // cargo test -- --nocapture | grep -i "^\[res:"
-    }
-
-    /// A test to assert the quality of the estimate.
-    /// This tests the 'error' of our estimation for false positives.
-    #[test]
-    fn with_no_repetition_should_have_no_matches_long_distance() {
-        const TARGET_BYTES: usize = 16777215; // 16.8MiB
-        const EXPECTED: usize = (TARGET_BYTES as f32 * 0.001f32) as usize; // 0.1% margin of error
-
-        // Generate a sequence of all unique 3-byte integers
-        // Since the estimator matches for >= 3 bytes, this should ideally return
-        // a number as close to 0 as possible.
-        let unique = generate_unique_3byte_sequence(16777215 / 3);
+        // Use u16 sequence for 128K test, 3-byte sequence for larger tests
+        let data = if test_size == 1 << 17 {
+            // Create sequence with no repetitions using u16
+            let unique: Vec<u16> = (0..u16::MAX).collect();
+            cast_u16_slice_to_u8_slice(&unique).to_vec()
+        } else {
+            // Generate a sequence of all unique 3-byte integers
+            // Since the estimator matches for >= 3 bytes, this should ideally return
+            // a number as close to 0 as possible.
+            generate_unique_3byte_sequence(test_size / 3)
+        };
 
         // There should actually be 0 matches, but there's always going to be a bit of
         // error with hash collisions.
-        let matches = estimate_num_lz_matches_fast(&unique);
+        let matches = estimate_num_lz_matches_fast(&data);
         assert!(
-            matches < EXPECTED,
+            matches < expected,
             "Sequence with no repetitions should have very few matches"
         );
         println!(
-            "[res:no_matches_long_distance] matches: {}, expected: < {}",
-            matches, EXPECTED
+            "[res:no_matches_{}] matches: {}, expected: < {}, allowed_error: {:.1}%, actual_error: {:.3}%",
+            if test_size == 1 << 17 {
+                "128k".to_owned()
+            } else {
+                format!("long_distance_{}", test_size)
+            },
+            matches,
+            expected,
+            allowed_error * 100.0,
+            (matches as f32 / test_size as f32) * 100.0
         ); // cargo test -- --nocapture | grep -i "^\[res:"
     }
 
