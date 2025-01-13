@@ -104,7 +104,7 @@ pub fn estimate_num_lz_matches_fast(bytes: &[u8]) -> usize {
     let hash_table = unsafe { &mut *(alloc.as_mut_ptr() as *mut [u32; HASH_SIZE]) };
 
     let mut matches = 0;
-    let mut begin_ptr = bytes.as_ptr();
+    let begin_ptr = bytes.as_ptr();
     unsafe {
         // 7 == (4) u32 match (4 bytes), using hash
         //      +3 bytes for offset
@@ -115,64 +115,185 @@ pub fn estimate_num_lz_matches_fast(bytes: &[u8]) -> usize {
         // Because doing a lookup earlier in the buffer is a bit expensive, cache wise, and because
         // this is an estimate, rather than an accurate lookup.
 
-        // So we hash the bytes
-        // TODO: Write assembly implementation.
-        while begin_ptr < end_ptr {
-            // Note: I had this in nicer form
-            // - hash_u32(read_3_byte_le_unaligned(begin_ptr, ofs))
-            // But LLVM failed to optimize properly when `target-cpu != native`
+        #[cfg(not(target_arch = "x86_64"))]
+        calculate_matches_generic(hash_table, &mut matches, begin_ptr, end_ptr);
 
-            // Get the values at x+0, x+1, x+2, x+3
-            let d0 = read_4_byte_le_unaligned(begin_ptr, 0);
-            let d1 = read_4_byte_le_unaligned(begin_ptr, 1);
-            let d2 = read_4_byte_le_unaligned(begin_ptr, 2);
-            let d3 = read_4_byte_le_unaligned(begin_ptr, 3);
-            begin_ptr = begin_ptr.add(4);
-
-            // Drop the byte we're not accounting for
-            let d0 = reduce_to_3byte(d0);
-            let d1 = reduce_to_3byte(d1);
-            let d2 = reduce_to_3byte(d2);
-            let d3 = reduce_to_3byte(d3);
-
-            // Convert to hashes.
-            let h0 = hash_u32(d0);
-            let h1 = hash_u32(d1);
-            let h2 = hash_u32(d2);
-            let h3 = hash_u32(d3);
-
-            // Good reading: https://probablydance.com/2018/06/16/fibonacci-hashing-the-optimization-that-the-world-forgot-or-a-better-alternative-to-integer-modulo/
-            // In this case, I create a multiplicative hash which creates a large 'sea of red'
-            // as I call it https://probablydance.com/wp-content/uploads/2018/06/avalanche_fibonacci1.png
-            // near the top bits.
-
-            // We get rid of this 'sea of red' by shifting right `32 - HASH_BITS`, and then AND-ing
-            // to fit our value in the mask. I'm not sure if it's the article not specifying bit
-            // order here, or whether my results are 'backwards',
-
-            // Use HASH_MASK bits for index into HASH_SIZE table
-            // Note: We don't need to AND with HASH_MASK because we're only taking upper bits.
-            let index0 = (h0 >> (32 - HASH_BITS)) as usize;
-            let index1 = (h1 >> (32 - HASH_BITS)) as usize;
-            let index2 = (h2 >> (32 - HASH_BITS)) as usize;
-            let index3 = (h3 >> (32 - HASH_BITS)) as usize;
-
-            // Increment matches if the 32-bit data at the table matches
-            // (which indicates a very likely LZ match)
-            matches += (hash_table[index0] == h0) as usize;
-            matches += (hash_table[index1] == h1) as usize;
-            matches += (hash_table[index2] == h2) as usize;
-            matches += (hash_table[index3] == h3) as usize;
-
-            // Update the data at the given index.
-            hash_table[index0] = h0;
-            hash_table[index1] = h1;
-            hash_table[index2] = h2;
-            hash_table[index3] = h3;
-        }
+        #[cfg(target_arch = "x86_64")]
+        calculate_matches_x86_64(hash_table, &mut matches, begin_ptr, end_ptr);
     }
 
     matches
+}
+
+// Generic, for any CPU.
+#[inline(always)]
+#[cfg(not(target_arch = "x86_64"))]
+unsafe fn calculate_matches_generic(
+    hash_table: &mut [u32; HASH_SIZE],
+    matches: &mut usize,
+    mut begin_ptr: *const u8,
+    end_ptr: *const u8,
+) {
+    // So we hash the bytes
+    while begin_ptr < end_ptr {
+        // Note: I had this in nicer form
+        // - hash_u32(read_3_byte_le_unaligned(begin_ptr, ofs))
+        // But LLVM failed to optimize properly when `target-cpu != native`
+
+        // Get the values at x+0, x+1, x+2, x+3
+        let d0 = read_4_byte_le_unaligned(begin_ptr, 0);
+        let d1 = read_4_byte_le_unaligned(begin_ptr, 1);
+        let d2 = read_4_byte_le_unaligned(begin_ptr, 2);
+        let d3 = read_4_byte_le_unaligned(begin_ptr, 3);
+        begin_ptr = begin_ptr.add(4);
+
+        // Drop the byte we're not accounting for
+        let d0 = reduce_to_3byte(d0);
+        let d1 = reduce_to_3byte(d1);
+        let d2 = reduce_to_3byte(d2);
+        let d3 = reduce_to_3byte(d3);
+
+        // Convert to hashes.
+        let h0 = hash_u32(d0);
+        let h1 = hash_u32(d1);
+        let h2 = hash_u32(d2);
+        let h3 = hash_u32(d3);
+
+        // Good reading: https://probablydance.com/2018/06/16/fibonacci-hashing-the-optimization-that-the-world-forgot-or-a-better-alternative-to-integer-modulo/
+        // In this case, I create a multiplicative hash which creates a large 'sea of red'
+        // as I call it https://probablydance.com/wp-content/uploads/2018/06/avalanche_fibonacci1.png
+        // near the top bits.
+
+        // We get rid of this 'sea of red' by shifting right `32 - HASH_BITS`, and then AND-ing
+        // to fit our value in the mask. I'm not sure if it's the article not specifying bit
+        // order here, or whether my results are 'backwards',
+
+        // Use HASH_MASK bits for index into HASH_SIZE table
+        // Note: We don't need to AND with HASH_MASK because we're only taking upper bits.
+        let index0 = (h0 >> (32 - HASH_BITS)) as usize;
+        let index1 = (h1 >> (32 - HASH_BITS)) as usize;
+        let index2 = (h2 >> (32 - HASH_BITS)) as usize;
+        let index3 = (h3 >> (32 - HASH_BITS)) as usize;
+
+        // Increment matches if the 32-bit data at the table matches
+        // (which indicates a very likely LZ match)
+        *matches += (hash_table[index0] == h0) as usize;
+        *matches += (hash_table[index1] == h1) as usize;
+        *matches += (hash_table[index2] == h2) as usize;
+        *matches += (hash_table[index3] == h3) as usize;
+
+        // Update the data at the given index.
+        hash_table[index0] = h0;
+        hash_table[index1] = h1;
+        hash_table[index2] = h2;
+        hash_table[index3] = h3;
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[allow(unused_assignments)]
+#[no_mangle]
+unsafe fn calculate_matches_x86_64(
+    hash_table: &mut [u32; HASH_SIZE],
+    matches: &mut usize,
+    mut begin_ptr: *const u8,
+    end_ptr: *const u8,
+) {
+    // Taken from building `calculate_matches_generic` with `target-cpu = native`
+    // and cleaning up the output.
+    unsafe {
+        std::arch::asm!(
+            // Initial comparison
+            "cmp {begin_ptr}, {end_ptr}",
+            "jae 4f",
+
+            // Load initial values
+            "mov {match_count}, qword ptr [{matches}]",
+
+            // Main loop
+            ".p2align 5, 0x90",
+            "2:",
+            // Load values
+            "mov {first_hash:e}, dword ptr [{begin_ptr}]",
+            "mov {second_hash:e}, dword ptr [{begin_ptr} + 1]",
+            "mov {third_hash:e}, dword ptr [{begin_ptr} + 2]",
+            "mov {fourth_hash:e}, dword ptr [{begin_ptr} + 3]",
+            "add {begin_ptr}, 4",
+
+            // Clear counter and apply masks
+            "xor {temp_count}, {temp_count}",
+            "and {first_hash:e}, {mask:e}",
+            "and {second_hash:e}, {mask:e}",
+            "and {third_hash:e}, {mask:e}",
+            "and {fourth_hash:e}, {mask:e}",
+
+            // Hash calculations
+            "imul {first_hash:e}, {first_hash:e}, -1640531535",
+            "imul {second_hash:e}, {second_hash:e}, -1640531535",
+            "imul {third_hash:e}, {third_hash:e}, -1640531535",
+            "imul {fourth_hash:e}, {fourth_hash:e}, -1640531535",
+
+            // Index calculations
+            "mov {first_index:e}, {first_hash:e}",
+            "mov {second_index:e}, {second_hash:e}",
+            "mov {third_index:e}, {third_hash:e}",
+            "mov {fourth_index:e}, {fourth_hash:e}",
+            "shr {first_index:e}, 17",
+            "shr {second_index:e}, 17",
+            "shr {third_index:e}, 17",
+            "shr {fourth_index:e}, 17",
+
+            // Compare and count matches
+            "cmp dword ptr [{hash_table} + 4*{first_index}], {first_hash:e}",
+            "sete {temp_count:l}",
+            "add {match_count}, {temp_count}",
+            "xor {temp_count}, {temp_count}",
+
+            "cmp dword ptr [{hash_table} + 4*{second_index}], {second_hash:e}",
+            "sete {temp_count:l}",
+            "add {match_count}, {temp_count}",
+            "xor {temp_count}, {temp_count}",
+
+            "cmp dword ptr [{hash_table} + 4*{third_index}], {third_hash:e}",
+            "sete {temp_count:l}",
+            "add {match_count}, {temp_count}",
+            "xor {temp_count}, {temp_count}",
+
+            "cmp dword ptr [{hash_table} + 4*{fourth_index}], {fourth_hash:e}",
+            "sete {temp_count:l}",
+            "add {match_count}, {temp_count}",
+
+            // Update hash table
+            "mov dword ptr [{hash_table} + 4*{first_index}], {first_hash:e}",
+            "mov dword ptr [{hash_table} + 4*{second_index}], {second_hash:e}",
+            "mov dword ptr [{hash_table} + 4*{third_index}], {third_hash:e}",
+            "mov dword ptr [{hash_table} + 4*{fourth_index}], {fourth_hash:e}",
+
+            // Loop condition
+            "cmp {begin_ptr}, {end_ptr}",
+            "jb 2b",
+
+            // Store final count
+            "mov qword ptr [{matches}], {match_count}",
+            "4:",
+
+            begin_ptr = inout(reg) begin_ptr,
+            end_ptr = in(reg) end_ptr,
+            hash_table = in(reg) hash_table.as_mut_ptr(),
+            matches = in(reg) matches,
+            match_count = out(reg) _,
+            first_hash = out(reg) _,
+            second_hash = out(reg) _,
+            third_hash = out(reg) _,
+            fourth_hash = out(reg) _,
+            first_index = out(reg) _,
+            second_index = out(reg) _,
+            third_index = out(reg) _,
+            fourth_index = out(reg) _,
+            temp_count = out(reg) _,
+            mask = in(reg) 16777215,
+        );
+    }
 }
 
 /// Hashes a 32-bit value by multiplying it with the golden ratio,
