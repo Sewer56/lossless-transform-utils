@@ -71,6 +71,7 @@ const GOLDEN_RATIO: u32 = 0x9E3779B1_u32;
 // And I found this after writing all this code: https://probablydance.com/2018/06/16/fibonacci-hashing-the-optimization-that-the-world-forgot-or-a-better-alternative-to-integer-modulo/
 const HASH_BITS: usize = 14; // 2^14 = 16k (of u32s) == 64KBytes
 const HASH_SIZE: usize = 1 << HASH_BITS;
+#[allow(dead_code)]
 const HASH_MASK: u32 = (HASH_SIZE - 1) as u32;
 
 /// Estimates the number of >=3 byte LZ matches in a given input data stream.
@@ -130,10 +131,11 @@ pub fn estimate_num_lz_matches_fast(bytes: &[u8]) -> usize {
             // order here, or whether my results are 'backwards',
 
             // Use HASH_MASK bits for index into HASH_SIZE table
-            let index0 = ((h0 >> (32 - HASH_BITS)) & HASH_MASK) as usize;
-            let index1 = ((h1 >> (32 - HASH_BITS)) & HASH_MASK) as usize;
-            let index2 = ((h2 >> (32 - HASH_BITS)) & HASH_MASK) as usize;
-            let index3 = ((h3 >> (32 - HASH_BITS)) & HASH_MASK) as usize;
+            // Note: We don't need to AND with HASH_MASK because we're only taking upper bits.
+            let index0 = (h0 >> (32 - HASH_BITS)) as usize;
+            let index1 = (h1 >> (32 - HASH_BITS)) as usize;
+            let index2 = (h2 >> (32 - HASH_BITS)) as usize;
+            let index3 = (h3 >> (32 - HASH_BITS)) as usize;
 
             // Increment matches if the 32-bit data at the table matches
             // (which indicates a very likely LZ match)
