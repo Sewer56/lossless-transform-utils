@@ -2,6 +2,8 @@
 //!
 //! This module provides functions for estimating the number of matches in the data, once LZ
 //! compression is applied to a given byte array.
+use core::alloc::Layout;
+use safe_allocator_api::RawAlloc;
 
 /// # Golden Ratio constant used for better hash scattering
 /// https://softwareengineering.stackexchange.com/a/402543
@@ -43,14 +45,12 @@ const GOLDEN_RATIO: u32 = 0x9E3779B1_u32;
 // # What does testing say?
 //
 // On my 5900X with 32K of L1, using a HASH_BITS == 14 == 32K table (of u16s) yields optimal results
-// for the u16 type. However, I decided to extend to the `u32` type, meaning that we use up 64K
-// of L1.
+// when using `u16` as the value type. However, I decided to extend to the `u32` type, to speed up
+// computation a little as we can skip a shift and zero extend.
 //
 // When table fits in L1 cache, doing compares with u32(s) is faster (any data):
 // - u16 -> 1.45GiB/s
 // - u32 -> 1.77GiB/s
-//
-// This is because we can reuse hash as value, no shift is needed, less data dependency.
 //
 // However, because we overrun the L1 cache, we do suffer a speed penalty (HASH_BITS == 14):
 // - u32, Random Data -> 1.48GiB/s
@@ -59,17 +59,19 @@ const GOLDEN_RATIO: u32 = 0x9E3779B1_u32;
 // When data is compressible, penalty is less. When not compressible, it is more.
 // This should be fairly natural, as repeating numbers means accessing same slots in hash table,
 // making parts of the table rarely accessed.
+//
 // For exact numbers, run benchmark.
 // In any case, it is still faster, AND more accurate, because we compare more bits; it's a win-win.
 //
 // # When to change this value?
 //
 // When *common* CPUs hit the next power of 2 on L1, we'll lift this, but this probably wouldn't
-// happen for quite a while.
+// happen for quite a while. That said, the lift to next power of 2 only brings marginal improvements
+// accuracy wise.
 //
 // Fun, semi-related reading: https://en.algorithmica.org/hpc/cpu-cache/associativity/#hardware-caches
 // And I found this after writing all this code: https://probablydance.com/2018/06/16/fibonacci-hashing-the-optimization-that-the-world-forgot-or-a-better-alternative-to-integer-modulo/
-const HASH_BITS: usize = 14; // 2^14 = 16k (of u32s) == 64KBytes
+const HASH_BITS: usize = 15; // 2^15 = 32k (of u32s) == 128KBytes
 const HASH_SIZE: usize = 1 << HASH_BITS;
 #[allow(dead_code)]
 const HASH_MASK: u32 = (HASH_SIZE - 1) as u32;
@@ -97,10 +99,11 @@ const HASH_MASK: u32 = (HASH_SIZE - 1) as u32;
 /// given that we use 32-bit hashes (longer than 24-bit source).
 pub fn estimate_num_lz_matches_fast(bytes: &[u8]) -> usize {
     // This table stores 3 byte hashes, each hash is transformed
-    // via the hash3 function.
-    let mut hash_table = [0u32; HASH_SIZE];
-    let mut matches = 0;
+    let layout = unsafe { Layout::from_size_align_unchecked(size_of::<u32>() * HASH_SIZE, 64) };
+    let mut alloc = RawAlloc::new_zeroed(layout).unwrap();
+    let hash_table = unsafe { &mut *(alloc.as_mut_ptr() as *mut [u32; HASH_SIZE]) };
 
+    let mut matches = 0;
     let mut begin_ptr = bytes.as_ptr();
     unsafe {
         // 7 == (4) u32 match (4 bytes), using hash
