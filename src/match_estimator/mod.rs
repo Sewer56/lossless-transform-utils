@@ -249,7 +249,10 @@ mod tests {
         let matches = estimate_num_lz_matches_fast(&data);
         assert!(
             matches < expected,
-            "Sequence with no repetitions should have very few matches"
+            "Sequence with no repetitions should have very few matches, \
+             but got {} matches, expected at most {}",
+            matches,
+            expected
         );
         println!(
             "[res:no_matches_{}] matches: {}, expected: < {}, allowed_error: {:.1}%, actual_error: {:.3}%",
