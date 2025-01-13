@@ -116,13 +116,30 @@ pub fn estimate_num_lz_matches_fast(bytes: &[u8]) -> usize {
         // this is an estimate, rather than an accurate lookup.
 
         // So we hash the bytes
+        // TODO: Write assembly implementation.
         while begin_ptr < end_ptr {
-            // Get the hashes at x+0, x+1, x+2, x+3
-            let h0 = hash_u32(read_3_byte_le_unaligned(begin_ptr, 0));
-            let h1 = hash_u32(read_3_byte_le_unaligned(begin_ptr, 1));
-            let h2 = hash_u32(read_3_byte_le_unaligned(begin_ptr, 2));
-            let h3 = hash_u32(read_3_byte_le_unaligned(begin_ptr, 3));
+            // Note: I had this in nicer form
+            // - hash_u32(read_3_byte_le_unaligned(begin_ptr, ofs))
+            // But LLVM failed to optimize properly when `target-cpu != native`
+
+            // Get the values at x+0, x+1, x+2, x+3
+            let d0 = read_4_byte_le_unaligned(begin_ptr, 0);
+            let d1 = read_4_byte_le_unaligned(begin_ptr, 1);
+            let d2 = read_4_byte_le_unaligned(begin_ptr, 2);
+            let d3 = read_4_byte_le_unaligned(begin_ptr, 3);
             begin_ptr = begin_ptr.add(4);
+
+            // Drop the byte we're not accounting for
+            let d0 = reduce_to_3byte(d0);
+            let d1 = reduce_to_3byte(d1);
+            let d2 = reduce_to_3byte(d2);
+            let d3 = reduce_to_3byte(d3);
+
+            // Convert to hashes.
+            let h0 = hash_u32(d0);
+            let h1 = hash_u32(d1);
+            let h2 = hash_u32(d2);
+            let h3 = hash_u32(d3);
 
             // Good reading: https://probablydance.com/2018/06/16/fibonacci-hashing-the-optimization-that-the-world-forgot-or-a-better-alternative-to-integer-modulo/
             // In this case, I create a multiplicative hash which creates a large 'sea of red'
@@ -171,8 +188,14 @@ pub fn hash_u32(value: u32) -> u32 {
 ///
 /// This function dereferences a raw pointer
 #[inline(always)]
-pub unsafe fn read_3_byte_le_unaligned(ptr: *const u8, offset: usize) -> u32 {
-    (ptr.add(offset) as *const u32).read_unaligned().to_le() & 0xFFFFFF
+pub unsafe fn read_4_byte_le_unaligned(ptr: *const u8, offset: usize) -> u32 {
+    (ptr.add(offset) as *const u32).read_unaligned().to_le()
+}
+
+/// Drops the upper 8 bits of a 32-bit value.
+#[inline(always)]
+pub fn reduce_to_3byte(value: u32) -> u32 {
+    value & 0xFFFFFF
 }
 
 #[cfg(test)]
@@ -194,17 +217,6 @@ mod tests {
             hash_u32(2),
             "Different inputs should produce different hashes"
         );
-    }
-
-    #[test]
-    fn can_read_3_byte_le_unaligned() {
-        let data = [1u8, 2, 3, 4, 5, 6, 7, 8];
-        unsafe {
-            let ptr = data.as_ptr();
-            assert_eq!(read_3_byte_le_unaligned(ptr, 0), 0x030201);
-            assert_eq!(read_3_byte_le_unaligned(ptr, 1), 0x040302);
-            assert_eq!(read_3_byte_le_unaligned(ptr, 2), 0x050403);
-        }
     }
 
     #[test]
