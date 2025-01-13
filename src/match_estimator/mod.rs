@@ -284,10 +284,11 @@ mod tests {
     }
 
     #[rstest]
-    #[case(1 << 17, 1 << 13, 95000)] // 128K size, 8K offset, expect at least 90K matches (~21.6% error)
-    #[case(1 << 17, 1 << 14, 60000)] // 128K size, 16K offset, expect at least 60K matches (~46.2% error)
-    #[case(1 << 17, 1 << 15, 13000)] // 128K size, 32K offset, expect at least 13K matches (~86.3% error)
-    #[case(1 << 17, 1 << 16, 450)] // 128K size, 64K offset, expect at least 450 matches (~99.3% error)
+    #[case(1 << 17, 1 << 12, 113000)] // 128K size, 4K offset, expect at least 90K matches (found 89.4%)
+    #[case(1 << 17, 1 << 13, 95000)] // 128K size, 8K offset, expect at least 90K matches (found 78.3%)
+    #[case(1 << 17, 1 << 14, 60000)] // 128K size, 16K offset, expect at least 60K matches (found 53.8%)
+    #[case(1 << 17, 1 << 15, 13000)] // 128K size, 32K offset, expect at least 13K matches (found 13.7%)
+    #[case(1 << 17, 1 << 16, 450)] // 128K size, 64K offset, expect at least 450 matches (found 0.7%)
     fn estimate_num_lz_matches_at_various_offsets(
         #[case] test_size: usize,
         #[case] match_interval: usize,
