@@ -1,4 +1,4 @@
-use crate::histogram::Histogram32;
+use crate::{histogram::Histogram32, match_estimator};
 use core::slice;
 
 /// Calculates a new histogram given a byte slice.
@@ -146,4 +146,35 @@ pub unsafe extern "C" fn code_length_of_histogram32(hist: *const Histogram32, to
 #[no_mangle]
 pub unsafe extern "C" fn code_length_of_histogram32_no_size(hist: *const Histogram32) -> f64 {
     crate::entropy::code_length_of_histogram32_no_size(&(*hist))
+}
+
+/// Estimates the number of >=3 byte LZ matches in a given input data stream.
+/// This implementation sacrifices a bit of accuracy for speed, i.e. it focuses more on shorter
+/// range matches.
+///
+/// # Arguments
+///
+/// * `bytes` - The input data stream.
+///
+/// # Returns
+///
+/// The estimate number of >=3 byte LZ matches.
+/// This number is an estimate, it is not an exact amount.
+///
+/// # Remarks
+///
+/// This function is optimized around more modern speedy LZ compressors; namely, those which
+/// match 3 or more bytes at a time.
+///
+/// Do note that this is an estimator; it is not an exact number; but the number should be accurate-ish
+/// given that we use 32-bit hashes (longer than 24-bit source). Think of this as equivalent to a
+/// 'fast mode'/low compression level mode.
+///
+/// # Safety
+///
+/// The caller must ensure `data` points to a valid region of memory of length `len`.
+/// This API does not validate this, passing a null pointer will crash the program.
+#[no_mangle]
+pub unsafe extern "C" fn estimate_num_lz_matches_fast(data: *const u8, len: usize) -> usize {
+    match_estimator::estimate_num_lz_matches_fast(slice::from_raw_parts(data, len))
 }

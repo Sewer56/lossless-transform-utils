@@ -92,11 +92,11 @@ const HASH_MASK: u32 = (HASH_SIZE - 1) as u32;
 /// # Remarks
 ///
 /// This function is optimized around more modern speedy LZ compressors; namely, those which
-/// match 3 or more bytes at a time. This logic can however be adjusted for 2 and 4 byte matches.
-/// For those, you would make separate methods; as to keep the mask at read time known at compile time.
+/// match 3 or more bytes at a time.
 ///
 /// Do note that this is an estimator; it is not an exact number; but the number should be accurate-ish
-/// given that we use 32-bit hashes (longer than 24-bit source).
+/// given that we use 32-bit hashes (longer than 24-bit source). Think of this as equivalent to a
+/// 'fast mode'/low compression level mode.
 pub fn estimate_num_lz_matches_fast(bytes: &[u8]) -> usize {
     // This table stores 3 byte hashes, each hash is transformed
     let layout = unsafe { Layout::from_size_align_unchecked(size_of::<u32>() * HASH_SIZE, 64) };
