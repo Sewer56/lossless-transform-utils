@@ -192,7 +192,8 @@ unsafe fn calculate_matches_generic(
 
 #[cfg(target_arch = "x86_64")]
 #[allow(unused_assignments)]
-unsafe fn calculate_matches_x86_64(
+#[inline(never)]
+unsafe extern "win64" fn calculate_matches_x86_64(
     hash_table: &mut [u32; HASH_SIZE],
     matches: &mut usize,
     mut begin_ptr: *const u8,
@@ -291,6 +292,7 @@ unsafe fn calculate_matches_x86_64(
             fourth_index = out(reg) _,
             temp_count = out(reg) _,
             mask = in(reg) 16777215,
+            options(nostack, pure, readonly)
         );
     }
 }

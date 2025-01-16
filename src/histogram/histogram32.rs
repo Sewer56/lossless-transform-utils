@@ -205,7 +205,7 @@ pub(crate) fn histogram32_generic_batched_unroll_4_u32(bytes: &[u8], histogram: 
 #[inline(never)]
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "bmi1")]
-unsafe fn process_four_u32_bmi(
+unsafe extern "sysv64" fn process_four_u32_bmi(
     histo_ptr: *mut u32,
     values_ptr: &mut *const u32,
     ptr_end_unroll: *const u32,
