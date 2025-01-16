@@ -192,7 +192,6 @@ unsafe fn calculate_matches_generic(
 
 #[cfg(target_arch = "x86_64")]
 #[allow(unused_assignments)]
-#[no_mangle]
 unsafe fn calculate_matches_x86_64(
     hash_table: &mut [u32; HASH_SIZE],
     matches: &mut usize,
@@ -299,7 +298,8 @@ unsafe fn calculate_matches_x86_64(
 /// Hashes a 32-bit value by multiplying it with the golden ratio,
 /// ensuring that it
 #[inline(always)]
-pub fn hash_u32(value: u32) -> u32 {
+#[allow(dead_code)]
+pub(crate) fn hash_u32(value: u32) -> u32 {
     value.wrapping_mul(GOLDEN_RATIO)
 }
 
@@ -309,13 +309,15 @@ pub fn hash_u32(value: u32) -> u32 {
 ///
 /// This function dereferences a raw pointer
 #[inline(always)]
-pub unsafe fn read_4_byte_le_unaligned(ptr: *const u8, offset: usize) -> u32 {
+#[allow(dead_code)]
+pub(crate) unsafe fn read_4_byte_le_unaligned(ptr: *const u8, offset: usize) -> u32 {
     (ptr.add(offset) as *const u32).read_unaligned().to_le()
 }
 
 /// Drops the upper 8 bits of a 32-bit value.
 #[inline(always)]
-pub fn reduce_to_3byte(value: u32) -> u32 {
+#[allow(dead_code)]
+pub(crate) fn reduce_to_3byte(value: u32) -> u32 {
     value & 0xFFFFFF
 }
 
