@@ -292,7 +292,7 @@ unsafe extern "win64" fn calculate_matches_x86_64(
             fourth_index = out(reg) _,
             temp_count = out(reg) _,
             mask = in(reg) 16777215,
-            options(nostack, pure, readonly)
+            options(nostack, readonly)
         );
     }
 }
