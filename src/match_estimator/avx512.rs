@@ -1,9 +1,10 @@
 use super::{calculate_matches_generic, GOLDEN_RATIO, HASH_BITS, HASH_SIZE};
 use core::arch::x86_64::*;
 
-#[target_feature(enable = "avx2")]
+#[target_feature(enable = "avx512f")]
+#[target_feature(enable = "avx512vl")]
 #[inline(never)]
-pub(crate) unsafe fn calculate_matches_avx2(
+pub(crate) unsafe fn calculate_matches_avx512(
     hash_table: &mut [u32; HASH_SIZE],
     matches: &mut usize,
     mut begin_ptr: *const u8,
@@ -65,54 +66,10 @@ pub(crate) unsafe fn calculate_matches_avx2(
         // Update hash table entries
         // Unfortunately we still need to do this one by one as there's no scatter in AVX2
         // (only in AVX512)
-        _mm256_storeu_si256(indices.as_mut_ptr() as *mut __m256i, idx0);
-        _mm256_storeu_si256((indices.as_mut_ptr() as *mut __m256i).add(1), idx1);
-        _mm256_storeu_si256((indices.as_mut_ptr() as *mut __m256i).add(2), idx2);
-        _mm256_storeu_si256((indices.as_mut_ptr() as *mut __m256i).add(3), idx3);
-        _mm256_storeu_si256(data.as_mut_ptr() as *mut __m256i, d0);
-        _mm256_storeu_si256((data.as_mut_ptr() as *mut __m256i).add(1), d1);
-        _mm256_storeu_si256((data.as_mut_ptr() as *mut __m256i).add(2), d2);
-        _mm256_storeu_si256((data.as_mut_ptr() as *mut __m256i).add(3), d3);
-
-        // Update for d0/idx0
-        hash_table[indices[0] as usize] = data[0];
-        hash_table[indices[1] as usize] = data[1];
-        hash_table[indices[2] as usize] = data[2];
-        hash_table[indices[3] as usize] = data[3];
-        hash_table[indices[4] as usize] = data[4];
-        hash_table[indices[5] as usize] = data[5];
-        hash_table[indices[6] as usize] = data[6];
-        hash_table[indices[7] as usize] = data[7];
-
-        // Update for d1/idx1
-        hash_table[indices[8] as usize] = data[8];
-        hash_table[indices[9] as usize] = data[9];
-        hash_table[indices[10] as usize] = data[10];
-        hash_table[indices[11] as usize] = data[11];
-        hash_table[indices[12] as usize] = data[12];
-        hash_table[indices[13] as usize] = data[13];
-        hash_table[indices[14] as usize] = data[14];
-        hash_table[indices[15] as usize] = data[15];
-
-        // Update for d2/idx2
-        hash_table[indices[16] as usize] = data[16];
-        hash_table[indices[17] as usize] = data[17];
-        hash_table[indices[18] as usize] = data[18];
-        hash_table[indices[19] as usize] = data[19];
-        hash_table[indices[20] as usize] = data[20];
-        hash_table[indices[21] as usize] = data[21];
-        hash_table[indices[22] as usize] = data[22];
-        hash_table[indices[23] as usize] = data[23];
-
-        // Update for d3/idx3
-        hash_table[indices[24] as usize] = data[24];
-        hash_table[indices[25] as usize] = data[25];
-        hash_table[indices[26] as usize] = data[26];
-        hash_table[indices[27] as usize] = data[27];
-        hash_table[indices[28] as usize] = data[28];
-        hash_table[indices[29] as usize] = data[29];
-        hash_table[indices[30] as usize] = data[30];
-        hash_table[indices[31] as usize] = data[31];
+        _mm256_i32scatter_epi32(hash_table.as_mut_ptr().cast(), idx0, d0, 4);
+        _mm256_i32scatter_epi32(hash_table.as_mut_ptr().cast(), idx1, d1, 4);
+        _mm256_i32scatter_epi32(hash_table.as_mut_ptr().cast(), idx2, d2, 4);
+        _mm256_i32scatter_epi32(hash_table.as_mut_ptr().cast(), idx3, d3, 4);
 
         begin_ptr = begin_ptr.add(35);
     }

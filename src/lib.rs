@@ -1,6 +1,8 @@
 #![doc = include_str!("../README.MD")]
 #![no_std]
 #![cfg_attr(feature = "nightly", feature(naked_functions))]
+#![cfg_attr(feature = "nightly", feature(stdarch_x86_avx512))]
+#![cfg_attr(feature = "nightly", feature(avx512_target_feature))]
 
 #[cfg(feature = "c-exports")]
 pub mod exports;

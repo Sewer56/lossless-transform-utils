@@ -8,6 +8,9 @@ use std::is_x86_feature_detected;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx2;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(feature = "nightly")]
+mod avx512;
 
 /// # Golden Ratio constant used for better hash scattering
 /// https://softwareengineering.stackexchange.com/a/402543
@@ -119,7 +122,19 @@ pub fn estimate_num_lz_matches_fast(bytes: &[u8]) -> usize {
         // Because doing a lookup earlier in the buffer is a bit expensive, cache wise, and because
         // this is an estimate, rather than an accurate lookup.
 
-        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        #[cfg(all(feature = "nightly", any(target_arch = "x86", target_arch = "x86_64")))]
+        if is_x86_feature_detected!("avx2") {
+            avx2::calculate_matches_avx2(hash_table, &mut matches, begin_ptr, end_ptr);
+        } else if is_x86_feature_detected!("avx512f") && is_x86_feature_detected!("avx512vl") {
+            avx512::calculate_matches_avx512(hash_table, &mut matches, begin_ptr, end_ptr);
+        } else {
+            calculate_matches_generic(hash_table, &mut matches, begin_ptr, end_ptr);
+        }
+
+        #[cfg(all(
+            not(feature = "nightly"),
+            any(target_arch = "x86", target_arch = "x86_64")
+        ))]
         if is_x86_feature_detected!("avx2") {
             avx2::calculate_matches_avx2(hash_table, &mut matches, begin_ptr, end_ptr);
         } else {
