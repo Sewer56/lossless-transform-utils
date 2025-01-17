@@ -51,6 +51,7 @@ jobs:
           features: "c-exports,bench,nightly"
           build-library: true
           run-tests-and-coverage: true
+          use-tarpaulin: false # Currently broken on nightly :(
           codecov-token: ${{ secrets.CODECOV_TOKEN }}
       # Note: The GitHub Runner Images will contain an up to date Rust Stable Toolchain
       #       thus as per recommendation of cargo-semver-checks, we're using stable here.
