@@ -114,20 +114,14 @@ pub fn estimate_num_lz_matches_fast(bytes: &[u8]) -> usize {
         // We're doing a little 'trick' here.
         // Because doing a lookup earlier in the buffer is a bit expensive, cache wise, and because
         // this is an estimate, rather than an accurate lookup.
-
-        #[cfg(not(target_arch = "x86_64"))]
         calculate_matches_generic(hash_table, &mut matches, begin_ptr, end_ptr);
-
-        #[cfg(target_arch = "x86_64")]
-        calculate_matches_x86_64(hash_table, &mut matches, begin_ptr, end_ptr);
     }
 
     matches
 }
 
 // Generic, for any CPU.
-#[inline(always)]
-#[cfg(not(target_arch = "x86_64"))]
+#[inline(never)] // try reduce register pressure
 unsafe fn calculate_matches_generic(
     hash_table: &mut [u32; HASH_SIZE],
     matches: &mut usize,
@@ -177,123 +171,16 @@ unsafe fn calculate_matches_generic(
 
         // Increment matches if the 32-bit data at the table matches
         // (which indicates a very likely LZ match)
-        *matches += (hash_table[index0] == h0) as usize;
-        *matches += (hash_table[index1] == h1) as usize;
-        *matches += (hash_table[index2] == h2) as usize;
-        *matches += (hash_table[index3] == h3) as usize;
+        *matches += (hash_table[index0] == d0) as usize;
+        *matches += (hash_table[index1] == d1) as usize;
+        *matches += (hash_table[index2] == d2) as usize;
+        *matches += (hash_table[index3] == d3) as usize;
 
         // Update the data at the given index.
-        hash_table[index0] = h0;
-        hash_table[index1] = h1;
-        hash_table[index2] = h2;
-        hash_table[index3] = h3;
-    }
-}
-
-#[cfg(target_arch = "x86_64")]
-#[allow(unused_assignments)]
-#[inline(never)]
-unsafe extern "win64" fn calculate_matches_x86_64(
-    hash_table: &mut [u32; HASH_SIZE],
-    matches: &mut usize,
-    mut begin_ptr: *const u8,
-    end_ptr: *const u8,
-) {
-    // Taken from building `calculate_matches_generic` with `target-cpu = native`
-    // and cleaning up the output.
-    unsafe {
-        std::arch::asm!(
-            // Initial comparison
-            "cmp {begin_ptr}, {end_ptr}",
-            "jae 4f",
-
-            // Load initial values
-            "mov {match_count}, qword ptr [{matches}]",
-
-            // Main loop
-            ".p2align 5, 0x90",
-            "2:",
-            // Load values
-            "mov {first_hash:e}, dword ptr [{begin_ptr}]",
-            "mov {second_hash:e}, dword ptr [{begin_ptr} + 1]",
-            "mov {third_hash:e}, dword ptr [{begin_ptr} + 2]",
-            "mov {fourth_hash:e}, dword ptr [{begin_ptr} + 3]",
-            "add {begin_ptr}, 4",
-
-            // Clear counter and apply masks
-            "xor {temp_count}, {temp_count}",
-            "and {first_hash:e}, {mask:e}",
-            "and {second_hash:e}, {mask:e}",
-            "and {third_hash:e}, {mask:e}",
-            "and {fourth_hash:e}, {mask:e}",
-
-            // Hash calculations
-            "imul {first_hash:e}, {first_hash:e}, -1640531535",
-            "imul {second_hash:e}, {second_hash:e}, -1640531535",
-            "imul {third_hash:e}, {third_hash:e}, -1640531535",
-            "imul {fourth_hash:e}, {fourth_hash:e}, -1640531535",
-
-            // Index calculations
-            "mov {first_index:e}, {first_hash:e}",
-            "mov {second_index:e}, {second_hash:e}",
-            "mov {third_index:e}, {third_hash:e}",
-            "mov {fourth_index:e}, {fourth_hash:e}",
-            "shr {first_index:e}, 17",
-            "shr {second_index:e}, 17",
-            "shr {third_index:e}, 17",
-            "shr {fourth_index:e}, 17",
-
-            // Compare and count matches
-            "cmp dword ptr [{hash_table} + 4*{first_index}], {first_hash:e}",
-            "sete {temp_count:l}",
-            "add {match_count}, {temp_count}",
-            "xor {temp_count}, {temp_count}",
-
-            "cmp dword ptr [{hash_table} + 4*{second_index}], {second_hash:e}",
-            "sete {temp_count:l}",
-            "add {match_count}, {temp_count}",
-            "xor {temp_count}, {temp_count}",
-
-            "cmp dword ptr [{hash_table} + 4*{third_index}], {third_hash:e}",
-            "sete {temp_count:l}",
-            "add {match_count}, {temp_count}",
-            "xor {temp_count}, {temp_count}",
-
-            "cmp dword ptr [{hash_table} + 4*{fourth_index}], {fourth_hash:e}",
-            "sete {temp_count:l}",
-            "add {match_count}, {temp_count}",
-
-            // Update hash table
-            "mov dword ptr [{hash_table} + 4*{first_index}], {first_hash:e}",
-            "mov dword ptr [{hash_table} + 4*{second_index}], {second_hash:e}",
-            "mov dword ptr [{hash_table} + 4*{third_index}], {third_hash:e}",
-            "mov dword ptr [{hash_table} + 4*{fourth_index}], {fourth_hash:e}",
-
-            // Loop condition
-            "cmp {begin_ptr}, {end_ptr}",
-            "jb 2b",
-
-            // Store final count
-            "mov qword ptr [{matches}], {match_count}",
-            "4:",
-
-            begin_ptr = inout(reg) begin_ptr,
-            end_ptr = in(reg) end_ptr,
-            hash_table = in(reg) hash_table.as_mut_ptr(),
-            matches = in(reg) matches,
-            match_count = out(reg) _,
-            first_hash = out(reg) _,
-            second_hash = out(reg) _,
-            third_hash = out(reg) _,
-            fourth_hash = out(reg) _,
-            first_index = out(reg) _,
-            second_index = out(reg) _,
-            third_index = out(reg) _,
-            fourth_index = out(reg) _,
-            temp_count = out(reg) _,
-            mask = in(reg) 16777215,
-            options(nostack, readonly)
-        );
+        hash_table[index0] = d0;
+        hash_table[index1] = d1;
+        hash_table[index2] = d2;
+        hash_table[index3] = d3;
     }
 }
 
