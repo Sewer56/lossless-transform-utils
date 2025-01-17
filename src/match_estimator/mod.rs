@@ -4,6 +4,10 @@
 //! compression is applied to a given byte array.
 use core::alloc::Layout;
 use safe_allocator_api::RawAlloc;
+use std::is_x86_feature_detected;
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+mod avx2;
 
 /// # Golden Ratio constant used for better hash scattering
 /// https://softwareengineering.stackexchange.com/a/402543
@@ -114,6 +118,15 @@ pub fn estimate_num_lz_matches_fast(bytes: &[u8]) -> usize {
         // We're doing a little 'trick' here.
         // Because doing a lookup earlier in the buffer is a bit expensive, cache wise, and because
         // this is an estimate, rather than an accurate lookup.
+
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        if is_x86_feature_detected!("avx2") {
+            avx2::calculate_matches_avx2(hash_table, &mut matches, begin_ptr, end_ptr);
+        } else {
+            calculate_matches_generic(hash_table, &mut matches, begin_ptr, end_ptr);
+        }
+
+        #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
         calculate_matches_generic(hash_table, &mut matches, begin_ptr, end_ptr);
     }
 
@@ -122,7 +135,7 @@ pub fn estimate_num_lz_matches_fast(bytes: &[u8]) -> usize {
 
 // Generic, for any CPU.
 #[inline(never)] // try reduce register pressure
-unsafe fn calculate_matches_generic(
+pub(crate) unsafe fn calculate_matches_generic(
     hash_table: &mut [u32; HASH_SIZE],
     matches: &mut usize,
     mut begin_ptr: *const u8,
@@ -276,13 +289,6 @@ mod tests {
         // There should actually be 0 matches, but there's always going to be a bit of
         // error with hash collisions.
         let matches = estimate_num_lz_matches_fast(&data);
-        assert!(
-            matches < expected,
-            "Sequence with no repetitions should have very few matches, \
-             but got {} matches, expected at most {}",
-            matches,
-            expected
-        );
         println!(
             "[res:no_matches_{}] matches: {}, expected: < {}, allowed_error: {:.1}%, actual_error: {:.3}%",
             if test_size == 1 << 17 {
@@ -295,6 +301,13 @@ mod tests {
             allowed_error * 100.0,
             (matches as f32 / test_size as f32) * 100.0
         ); // cargo test -- --nocapture | grep -i "^\[res:"
+        assert!(
+            matches < expected,
+            "Sequence with no repetitions should have very few matches, \
+             but got {} matches, expected at most {}",
+            matches,
+            expected
+        );
     }
 
     fn generate_unique_3byte_sequence(length: usize) -> Vec<u8> {
