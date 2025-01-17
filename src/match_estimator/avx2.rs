@@ -9,13 +9,13 @@ pub(crate) unsafe fn calculate_matches_avx2(
     mut begin_ptr: *const u8,
     end_ptr: *const u8,
 ) {
-    let hash_table_ptr = hash_table.as_mut_ptr();
     let mask_24bit = _mm256_set1_epi32(0x00FFFFFF);
     let golden_ratio = _mm256_set1_epi32(GOLDEN_RATIO as i32);
     let mut indices = [0u32; 32];
     let mut data = [0u32; 32];
 
     const SHIFT_RIGHT: i32 = 32 - HASH_BITS as i32;
+    let mut matches_accumulator = _mm256_setzero_si256();
 
     // Process 8 positions at once using AVX2
     while begin_ptr.add(35) <= end_ptr {
@@ -56,94 +56,89 @@ pub(crate) unsafe fn calculate_matches_avx2(
         let eq2 = _mm256_cmpeq_epi32(d2, table_vals2);
         let eq3 = _mm256_cmpeq_epi32(d3, table_vals3);
 
-        // Count matches using movemask and popcnt
-        let mask0 = _mm256_movemask_ps(_mm256_castsi256_ps(eq0)) as u32;
-        let mask1 = _mm256_movemask_ps(_mm256_castsi256_ps(eq1)) as u32;
-        let mask2 = _mm256_movemask_ps(_mm256_castsi256_ps(eq2)) as u32;
-        let mask3 = _mm256_movemask_ps(_mm256_castsi256_ps(eq3)) as u32;
-
-        let match_count =
-            mask0.count_ones() + mask1.count_ones() + mask2.count_ones() + mask3.count_ones();
-        *matches += match_count as usize;
+        // Add matches to accumulator
+        matches_accumulator = _mm256_sub_epi32(matches_accumulator, eq0);
+        matches_accumulator = _mm256_sub_epi32(matches_accumulator, eq1);
+        matches_accumulator = _mm256_sub_epi32(matches_accumulator, eq2);
+        matches_accumulator = _mm256_sub_epi32(matches_accumulator, eq3);
 
         // Update hash table entries
         // Unfortunately we still need to do this one by one as there's no scatter in AVX2
         // (only in AVX512)
-
-        // Not using intrinsics because these transform this to vpextrd, which I don't want.
-        unsafe {
-            core::arch::asm!(
-                "vmovdqu [{indices}], {idx0}",
-                "vmovdqu [{indices_offset1}], {idx1}",
-                "vmovdqu [{indices_offset2}], {idx2}",
-                "vmovdqu [{indices_offset3}], {idx3}",
-                "vmovdqu [{data}], {d0}",
-                "vmovdqu [{data_offset1}], {d1}",
-                "vmovdqu [{data_offset2}], {d2}",
-                "vmovdqu [{data_offset3}], {d3}",
-                indices = in(reg) indices.as_mut_ptr(),
-                indices_offset1 = in(reg) indices.as_mut_ptr().add(8),
-                indices_offset2 = in(reg) indices.as_mut_ptr().add(16),
-                indices_offset3 = in(reg) indices.as_mut_ptr().add(24),
-                data = in(reg) data.as_mut_ptr(),
-                data_offset1 = in(reg) data.as_mut_ptr().add(8),
-                data_offset2 = in(reg) data.as_mut_ptr().add(16),
-                data_offset3 = in(reg) data.as_mut_ptr().add(24),
-                idx0 = in(ymm_reg) idx0,
-                idx1 = in(ymm_reg) idx1,
-                idx2 = in(ymm_reg) idx2,
-                idx3 = in(ymm_reg) idx3,
-                d0 = in(ymm_reg) d0,
-                d1 = in(ymm_reg) d1,
-                d2 = in(ymm_reg) d2,
-                d3 = in(ymm_reg) d3,
-                options(preserves_flags)
-            );
-        }
+        _mm256_storeu_si256(indices.as_mut_ptr() as *mut __m256i, idx0);
+        _mm256_storeu_si256((indices.as_mut_ptr() as *mut __m256i).add(1), idx1);
+        _mm256_storeu_si256((indices.as_mut_ptr() as *mut __m256i).add(2), idx2);
+        _mm256_storeu_si256((indices.as_mut_ptr() as *mut __m256i).add(3), idx3);
+        _mm256_storeu_si256(data.as_mut_ptr() as *mut __m256i, d0);
+        _mm256_storeu_si256((data.as_mut_ptr() as *mut __m256i).add(1), d1);
+        _mm256_storeu_si256((data.as_mut_ptr() as *mut __m256i).add(2), d2);
+        _mm256_storeu_si256((data.as_mut_ptr() as *mut __m256i).add(3), d3);
 
         // Update for d0/idx0
-        *hash_table_ptr.add(indices[0] as usize) = data[0];
-        *hash_table_ptr.add(indices[1] as usize) = data[1];
-        *hash_table_ptr.add(indices[2] as usize) = data[2];
-        *hash_table_ptr.add(indices[3] as usize) = data[3];
-        *hash_table_ptr.add(indices[4] as usize) = data[4];
-        *hash_table_ptr.add(indices[5] as usize) = data[5];
-        *hash_table_ptr.add(indices[6] as usize) = data[6];
-        *hash_table_ptr.add(indices[7] as usize) = data[7];
+        hash_table[indices[0] as usize] = data[0];
+        hash_table[indices[1] as usize] = data[1];
+        hash_table[indices[2] as usize] = data[2];
+        hash_table[indices[3] as usize] = data[3];
+        hash_table[indices[4] as usize] = data[4];
+        hash_table[indices[5] as usize] = data[5];
+        hash_table[indices[6] as usize] = data[6];
+        hash_table[indices[7] as usize] = data[7];
 
         // Update for d1/idx1
-        *hash_table_ptr.add(indices[8] as usize) = data[8];
-        *hash_table_ptr.add(indices[9] as usize) = data[9];
-        *hash_table_ptr.add(indices[10] as usize) = data[10];
-        *hash_table_ptr.add(indices[11] as usize) = data[11];
-        *hash_table_ptr.add(indices[12] as usize) = data[12];
-        *hash_table_ptr.add(indices[13] as usize) = data[13];
-        *hash_table_ptr.add(indices[14] as usize) = data[14];
-        *hash_table_ptr.add(indices[15] as usize) = data[15];
+        hash_table[indices[8] as usize] = data[8];
+        hash_table[indices[9] as usize] = data[9];
+        hash_table[indices[10] as usize] = data[10];
+        hash_table[indices[11] as usize] = data[11];
+        hash_table[indices[12] as usize] = data[12];
+        hash_table[indices[13] as usize] = data[13];
+        hash_table[indices[14] as usize] = data[14];
+        hash_table[indices[15] as usize] = data[15];
 
         // Update for d2/idx2
-        *hash_table_ptr.add(indices[16] as usize) = data[16];
-        *hash_table_ptr.add(indices[17] as usize) = data[17];
-        *hash_table_ptr.add(indices[18] as usize) = data[18];
-        *hash_table_ptr.add(indices[19] as usize) = data[19];
-        *hash_table_ptr.add(indices[20] as usize) = data[20];
-        *hash_table_ptr.add(indices[21] as usize) = data[21];
-        *hash_table_ptr.add(indices[22] as usize) = data[22];
-        *hash_table_ptr.add(indices[23] as usize) = data[23];
+        hash_table[indices[16] as usize] = data[16];
+        hash_table[indices[17] as usize] = data[17];
+        hash_table[indices[18] as usize] = data[18];
+        hash_table[indices[19] as usize] = data[19];
+        hash_table[indices[20] as usize] = data[20];
+        hash_table[indices[21] as usize] = data[21];
+        hash_table[indices[22] as usize] = data[22];
+        hash_table[indices[23] as usize] = data[23];
 
         // Update for d3/idx3
-        *hash_table_ptr.add(indices[24] as usize) = data[24];
-        *hash_table_ptr.add(indices[25] as usize) = data[25];
-        *hash_table_ptr.add(indices[26] as usize) = data[26];
-        *hash_table_ptr.add(indices[27] as usize) = data[27];
-        *hash_table_ptr.add(indices[28] as usize) = data[28];
-        *hash_table_ptr.add(indices[29] as usize) = data[29];
-        *hash_table_ptr.add(indices[30] as usize) = data[30];
-        *hash_table_ptr.add(indices[31] as usize) = data[31];
+        hash_table[indices[24] as usize] = data[24];
+        hash_table[indices[25] as usize] = data[25];
+        hash_table[indices[26] as usize] = data[26];
+        hash_table[indices[27] as usize] = data[27];
+        hash_table[indices[28] as usize] = data[28];
+        hash_table[indices[29] as usize] = data[29];
+        hash_table[indices[30] as usize] = data[30];
+        hash_table[indices[31] as usize] = data[31];
 
         begin_ptr = begin_ptr.add(35);
     }
 
+    // Add matches from accumulator to total matches
+    *matches = horizontal_sum_avx2(matches_accumulator) as usize;
+
     // Handle remaining bytes with scalar code
     calculate_matches_generic(hash_table, matches, begin_ptr, end_ptr);
+}
+
+// Horizontal sum of __m256i containing 8 x i32 values
+#[inline]
+#[cfg(target_arch = "x86_64")]
+pub unsafe fn horizontal_sum_avx2(v: __m256i) -> i32 {
+    // Extract high and low 128-bit lanes
+    let low: __m128i = _mm256_extracti128_si256(v, 0);
+    let high: __m128i = _mm256_extracti128_si256(v, 1);
+
+    // Add the high and low lanes
+    let sum = _mm_add_epi32(low, high);
+
+    // Horizontal additions to sum all elements
+    let sum = _mm_hadd_epi32(sum, sum);
+    let sum = _mm_hadd_epi32(sum, sum);
+
+    // Extract the final sum from the lowest 32 bits
+    _mm_cvtsi128_si32(sum)
 }
