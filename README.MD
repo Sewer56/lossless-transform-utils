@@ -54,6 +54,18 @@ However, because the input histograms only have 256 elements, the accuracy trade
 is considered worthwhile here. The runtime is constant ~900ns per histogram on a 5900X as a point
 of reference.
 
+### Match Estimator
+
+Estimates the number of `>=3 byte` LZ matches in a given input array.
+
+```rust
+use lossless_transform_utils::match_estimator::estimate_num_lz_matches_fast;
+
+let data = [1, 2, 3, 1, 2, 1];
+let num_lz_matches = estimate_num_lz_matches_fast(&data);
+println!("Number of LZ matches: {}", num_lz_matches);
+```
+
 ## Crate Features
 
 - `std` [default]: Enables x86 CPU feature detection.
