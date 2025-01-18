@@ -149,8 +149,23 @@ match_estimator/repeated_data_len_7/8388608
                         thrpt:  [1.4186 GiB/s 1.4203 GiB/s 1.4217 GiB/s]
 ```
 
-Note: Building with `-C target-cpu=native` may sometimes yield performance improvements, I've tried
-to rearrange the code to minimize that as much as possible however.
+Note: Building with `-C target-cpu=native` may sometimes yield performance improvements on some CPUs,
+I've tried to rearrange the code to minimize that as much as possible however.
+
+The combined speed/rate of the operations [e.g. 'splitting data'](#example-splitting-data) for an
+8MiB file on a single thread is `1.22GB/s`.
+
+Calculation:
+
+- `histogram`: 1.1720 ms (6.6661 GiB/s)
+- `match_estimator`: 5.6675 ms (1.3785GiB/s) 
+- `code_length_of_histogram32`: constant `886.12 ns`
+
+8388608 bytes / (1.1720ms + 5.6675ms + 886.12ns) == `1169.525 MiB/s` == `1226.335 MB/s`
+
+To put this into perspective, if you have 1GiB of data, and for each file you test 4 different
+splits/variants, your rate (per thread) is 305MB/s. Performance on multi threads has not been
+tested, but is expected to scale well, given the workload appears to be CPU bound.
 
 ## Implementation Accuracy of the Match Estimator
 
