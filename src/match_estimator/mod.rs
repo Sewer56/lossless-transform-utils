@@ -4,12 +4,14 @@
 //! compression is applied to a given byte array.
 use core::alloc::Layout;
 use safe_allocator_api::RawAlloc;
+#[cfg(any(feature = "estimator-avx512", feature = "estimator-avx2"))]
 use std::is_x86_feature_detected;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(feature = "estimator-avx2")]
 mod avx2;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-#[cfg(feature = "nightly")]
+#[cfg(feature = "estimator-avx512")]
 mod avx512;
 
 /// # Golden Ratio constant used for better hash scattering
@@ -117,35 +119,41 @@ pub fn estimate_num_lz_matches_fast(bytes: &[u8]) -> usize {
         //      +3 bytes for offset
         // We're dropping it, this is an estimation, after all.
         let end_ptr = begin_ptr.add(bytes.len().saturating_sub(7)); // min 0
-
-        // We're doing a little 'trick' here.
-        // Because doing a lookup earlier in the buffer is a bit expensive, cache wise, and because
-        // this is an estimate, rather than an accurate lookup.
-
-        #[cfg(all(feature = "nightly", any(target_arch = "x86", target_arch = "x86_64")))]
-        if is_x86_feature_detected!("avx2") {
-            avx2::calculate_matches_avx2(hash_table, &mut matches, begin_ptr, end_ptr);
-        } else if is_x86_feature_detected!("avx512f") && is_x86_feature_detected!("avx512vl") {
-            avx512::calculate_matches_avx512(hash_table, &mut matches, begin_ptr, end_ptr);
-        } else {
-            calculate_matches_generic(hash_table, &mut matches, begin_ptr, end_ptr);
-        }
-
-        #[cfg(all(
-            not(feature = "nightly"),
-            any(target_arch = "x86", target_arch = "x86_64")
-        ))]
-        if is_x86_feature_detected!("avx2") {
-            avx2::calculate_matches_avx2(hash_table, &mut matches, begin_ptr, end_ptr);
-        } else {
-            calculate_matches_generic(hash_table, &mut matches, begin_ptr, end_ptr);
-        }
-
-        #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
-        calculate_matches_generic(hash_table, &mut matches, begin_ptr, end_ptr);
+        calculate_matches_impl(hash_table, &mut matches, begin_ptr, end_ptr);
     }
 
     matches
+}
+
+#[inline(always)]
+fn calculate_matches_impl(
+    hash_table: &mut [u32; HASH_SIZE],
+    matches: &mut usize,
+    begin_ptr: *const u8,
+    end_ptr: *const u8,
+) {
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    {
+        #[cfg(feature = "estimator-avx512")]
+        if is_x86_feature_detected!("avx512f") && is_x86_feature_detected!("avx512vl") {
+            unsafe {
+                avx512::calculate_matches_avx512(hash_table, matches, begin_ptr, end_ptr);
+                return;
+            }
+        }
+
+        #[cfg(feature = "estimator-avx2")]
+        if is_x86_feature_detected!("avx2") {
+            unsafe {
+                avx2::calculate_matches_avx2(hash_table, matches, begin_ptr, end_ptr);
+                return;
+            }
+        }
+    }
+
+    unsafe {
+        calculate_matches_generic(hash_table, matches, begin_ptr, end_ptr);
+    }
 }
 
 // Generic, for any CPU.
@@ -156,7 +164,10 @@ pub(crate) unsafe fn calculate_matches_generic(
     mut begin_ptr: *const u8,
     end_ptr: *const u8,
 ) {
-    // So we hash the bytes
+    // We're doing a little 'trick' here.
+    // Because doing a lookup earlier in the buffer is a bit expensive, cache wise, and because
+    // this is an estimate, rather than an accurate lookup.
+
     while begin_ptr < end_ptr {
         // Note: I had this in nicer form
         // - hash_u32(read_3_byte_le_unaligned(begin_ptr, ofs))

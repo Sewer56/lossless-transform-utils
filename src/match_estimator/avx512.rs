@@ -12,8 +12,6 @@ pub(crate) unsafe fn calculate_matches_avx512(
 ) {
     let mask_24bit = _mm256_set1_epi32(0x00FFFFFF);
     let golden_ratio = _mm256_set1_epi32(GOLDEN_RATIO as i32);
-    let mut indices = [0u32; 32];
-    let mut data = [0u32; 32];
 
     const SHIFT_RIGHT: i32 = 32 - HASH_BITS as i32;
     let mut matches_accumulator = _mm256_setzero_si256();
