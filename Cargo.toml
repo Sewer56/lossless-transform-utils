@@ -23,6 +23,16 @@ nightly = []
 # Enable benchmarks for non-public API items.
 bench = []
 
+# Use AVX2 Implementation of match estimator
+# This shouldn't be used. It's just an experimental implementation that (unfortunately)
+# did not hit performance targets due to a lack of scatter instruction.
+estimator-avx2 = []
+
+# Use AVX512 Implementation of match estimator [requires nightly]
+# Only tested in CI, not sure about performance, I (Sewer) don't own a AVX512 capable machine.
+# In theory it should be faster than scalar; so preferable.
+estimator-avx512 = ["nightly"]
+
 [dependencies]
 safe-allocator-api = "0.3.0"
 

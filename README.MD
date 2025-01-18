@@ -64,9 +64,23 @@ of reference.
 - `nightly`: Enables x86 acceleration for `histogram32` creation (requires naked ASM).
 - `bench`: Enable benchmarks for non-public API items.
 
-These exist but are currently unused:
+***These exist but are currently unused***:
 
 - `pgo`: Additional workloads for profile guided optimization in the `all` benchmark project.
+
+***These features should not be used***:
+
+- `estimator-avx2`: Uses AVX2 instructions for the match estimator.
+    - Don't use this, it's not fast enough, due to a lack of an `AVX2 'scatter'` instruction.
+    - Loses a bit of accuracy; at around same speed as scalar.
+    - If you're a SIMD wizard with better ideas, feel free to contribute.
+
+***These features are not fully tested***:
+
+- `estimator-avx512`: Uses AVX512 instructions for the match estimator.
+    - I (Sewer) don't own AVX512 capable hardware.
+    - So this hasn't been fully benchmarked/optimized.
+    - It (should) be faster than scalar, however.
 
 ## Development
 
