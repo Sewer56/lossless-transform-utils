@@ -1,6 +1,4 @@
 use criterion::*;
-pub use lossless_transform_utils::entropy::*;
-pub use lossless_transform_utils::histogram::*;
 use lossless_transform_utils::match_estimator::estimate_num_lz_matches_fast;
 
 // Benchmark group configuration

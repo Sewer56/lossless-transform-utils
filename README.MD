@@ -95,6 +95,78 @@ println!("Number of LZ matches: {}", num_lz_matches);
     - It (should) be faster than scalar, however.
     - Tested only in CI.
 
+## Reference Performance Numbers
+
+Tested with regular `cargo build`.
+R9 5900X, single core, CL16 3200MHz DDR4 RAM.
+
+Histogram Creation:
+
+```ignore
+entropy/code_length_of_histogram32/8388608
+                        time:   [885.25 ns 886.12 ns 887.10 ns]
+                        thrpt:  [1.1273 Melem/s 1.1285 Melem/s 1.1296 Melem/s]
+
+histogram/portable/public-api/8388608
+                        time:   [1.1709 ms 1.1720 ms 1.1733 ms]
+                        thrpt:  [6.6587 GiB/s 6.6661 GiB/s 6.6723 GiB/s]
+```
+
+Match Estimator:
+
+```ignore
+match_estimator/random_data/8388608
+                        time:   [5.8430 ms 5.8499 ms 5.8586 ms]
+                        thrpt:  [1.3335 GiB/s 1.3355 GiB/s 1.3371 GiB/s]
+match_estimator/repeated_data_len_1/8388608
+                        time:   [5.2753 ms 5.2781 ms 5.2816 ms]
+                        thrpt:  [1.4792 GiB/s 1.4802 GiB/s 1.4810 GiB/s]
+match_estimator/repeated_data_len_2/8388608
+                        time:   [5.3962 ms 5.4068 ms 5.4204 ms]
+                        thrpt:  [1.4413 GiB/s 1.4449 GiB/s 1.4478 GiB/s]
+match_estimator/repeated_data_len_3/8388608
+                        time:   [5.6629 ms 5.6675 ms 5.6726 ms]
+                        thrpt:  [1.3772 GiB/s 1.3785 GiB/s 1.3796 GiB/s]
+match_estimator/repeated_data_len_4/8388608
+                        time:   [6.0370 ms 6.0420 ms 6.0478 ms]
+                        thrpt:  [1.2918 GiB/s 1.2930 GiB/s 1.2941 GiB/s]
+match_estimator/repeated_data_len_5/8388608
+                        time:   [5.5378 ms 5.5467 ms 5.5567 ms]
+                        thrpt:  [1.4060 GiB/s 1.4085 GiB/s 1.4108 GiB/s]
+match_estimator/repeated_data_len_6/8388608
+                        time:   [5.4477 ms 5.4510 ms 5.4547 ms]
+                        thrpt:  [1.4323 GiB/s 1.4332 GiB/s 1.4341 GiB/s]
+match_estimator/repeated_data_len_7/8388608
+                        time:   [5.4951 ms 5.5006 ms 5.5071 ms]
+                        thrpt:  [1.4186 GiB/s 1.4203 GiB/s 1.4217 GiB/s]
+```
+
+Note: Building with `-C target-cpu=native` may sometimes yield performance improvements, I've tried
+to rearrange the code to minimize that as much as possible however.
+
+## Implementation Accuracy of the Match Estimator
+
+Can be tested with `cargo test -- --nocapture | grep -i "^\[res:"`
+
+Found Matches at (4K - 64K offsets):
+
+```ignore
+[res:matches_4096_intervals_131072] matches: 126298, expected: < 126976, minimum: 113000, found: 99.5%
+[res:matches_8192_intervals_131072] matches: 121123, expected: < 122880, minimum: 95000, found: 98.6%
+[res:matches_16384_intervals_131072] matches: 112196, expected: < 114688, minimum: 60000, found: 97.8%
+[res:matches_32768_intervals_131072] matches: 59506, expected: < 98304, minimum: 13000, found: 60.5%
+[res:matches_65536_intervals_131072] matches: 3737, expected: < 65536, minimum: 450, found: 5.7%
+```
+
+False Positives Testing:
+
+```ignore
+[res:no_matches_128k] matches: 68, expected: < 131, allowed_error: 0.1%, actual_error: 0.052%
+[res:no_matches_long_distance_16777215] matches: 11949, expected: < 16777, allowed_error: 0.1%, actual_error: 0.071%
+```
+
+Parameters such as hash table sized were tuned for best tradeoff between performance and accuracy.
+
 ## Development
 
 For information on how to work with this codebase, see [README-DEV.MD](README-DEV.MD).

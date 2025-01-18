@@ -6,6 +6,9 @@ mod entropy;
 #[path = "../histogram/main.rs"]
 mod histogram;
 
+#[path = "../match_estimator/main.rs"]
+mod match_estimator;
+
 // Benchmark group configuration
 #[cfg(not(target_os = "windows"))]
 use pprof::criterion::{Output, PProfProfiler};
@@ -24,6 +27,7 @@ pub fn get_benchmark_config() -> Criterion {
 pub fn run_all_benchmarks(c: &mut Criterion) {
     entropy::run_entropy_benchmarks(c);
     histogram::run_histogram_benchmarks(c);
+    match_estimator::run_match_estimator_benchmarks(c);
 }
 
 criterion_group! {
