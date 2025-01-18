@@ -81,6 +81,7 @@ of reference.
     - I (Sewer) don't own AVX512 capable hardware.
     - So this hasn't been fully benchmarked/optimized.
     - It (should) be faster than scalar, however.
+    - Tested only in CI.
 
 ## Development
 
