@@ -10,6 +10,10 @@ General purpose utility methods for creating lossless transforms for various fil
 
 ## Utilities
 
+This covers the API, a usage example and explanation for how to use the crate can be found
+at the bottom of the README file. Additional info for each method is attached to each method
+in the source code.
+
 ### Histogram
 
 Calculate the amount of times each byte appears in a dataset.
@@ -40,12 +44,14 @@ let data = [1, 2, 3, 1, 2, 1];
 let mut histogram = Histogram32::default();
 histogram32_from_bytes(&data, &mut histogram);
 
-let entropy = code_length_of_histogram32(&histogram, 6);
-println!("Entropy: {}", entropy);
+let entropy = code_length_of_histogram32(&histogram, data.len() as u64);
+println!("Entropy: {}", entropy); // 'entropy' bits per byte
 ```
 
-This allows you to estimate how compressible data is by entropy coding step of a compressor;
-more details in the module readme.
+This allows you to estimate how compressible data is by entropy coding step of a compressor.
+The returned result is average number of bits needed to represent each symbol (1 byte).
+
+i.e. `1.0` == 1 bit.
 
 The code length in this module favours accuracy rather than performance, so it does
 proper `f64` arithmetic, with `log2`; which is slow in terms of CPU time.
@@ -94,6 +100,8 @@ println!("Number of LZ matches: {}", num_lz_matches);
     - So this hasn't been fully benchmarked/optimized.
     - It (should) be faster than scalar, however.
     - Tested only in CI.
+
+(If you have an AVX512 machine, please reach out with what perf. results you get!!)
 
 ## Reference Performance Numbers
 
@@ -175,6 +183,152 @@ For information on how to work with this codebase, see [README-DEV.MD](README-DE
 
 Licensed under [MIT](./LICENSE).  
 
+## How to use this crate
+
+This guide explains how to effectively use the crate to estimate and compare the
+compressibility of different data.
+
+[Please note: I (Sewer) am not a compression expert; I just deliver high perf, bleeding edge
+libraries for modding games. Consult experts in the field]
+
+### Overview
+
+To determine if one piece of data is more compressible than another, you'll want to look at two key metrics:
+
+1. [Entropy differences](#entropy) 
+2. [LZ match count differences](#lz-match-analysis)
+
+These are provided by this crate.
+
+A significant difference in either metric suggests a likely improvement in compression ratio.
+
+### Example: Notes
+
+The parameters `MATCH_RATIO_THRESHOLD` and `ENTROPY_THRESHOLD` below are provided as reference
+only, appropriate numbers may vary depending on the nature of the input data.
+
+If you are writing performance-focused transforms, you may want to factor in the number of clock
+cycles into the calculations of whether it's worthwhile so transform too.
+
+### Example: Reordering Data
+
+In this case, you have a file composed of structures, for example 16-byte structs with bit
+packed values. You want to rearrange the order of the bits to improve the compression ratio.
+
+In this case, LZ match differences are most relevant.
+
+```rust
+use lossless_transform_utils::match_estimator::*;
+
+fn should_reorder_data(original: &[u8], reordered: &[u8]) -> bool {
+    // Constants for determining significance
+    const MATCH_RATIO_THRESHOLD: f64 = 2.0;  // needs 2x more matches
+
+    // Calculate match ratios
+    let matches_orig = estimate_num_lz_matches_fast(original) as f64 / original.len() as f64;
+    let matches_reordered = estimate_num_lz_matches_fast(reordered) as f64 / reordered.len() as f64;
+
+    matches_reordered > (matches_orig * MATCH_RATIO_THRESHOLD)
+}
+```
+
+Tip: If you have a struct with bitfields, you can often find compression wins by rearranging
+bits such that fields likely to repeat are byte aligned. This is what we're testing for here.
+
+### Example: Splitting Data
+
+When you have different types of data mixed together (e.g. 🍎 mixed with 🍐), you might want to 
+split them into separate streams for compression.
+
+You can measure if this is beneficial by comparing both matches and entropy.
+
+```rust
+use lossless_transform_utils::{
+    entropy::*,
+    histogram::*,
+    match_estimator::*,
+};
+
+// original data: 🍎🍐🍎🍐🍎🍐🍎🍐
+// split:
+//     part1: 🍎🍎🍎🍎
+//     part2: 🍐🍐🍐🍐
+fn should_split(part1: &[u8], part2: &[u8]) -> bool {
+    // Constants for determining significance
+    const MATCH_RATIO_THRESHOLD: f64 = 2.0;  // One input needs 2x more matches
+    const ENTROPY_THRESHOLD: f64 = 1.0;      // Or entropy difference >1 bit per byte
+
+    // Calculate match ratios
+    let matches1 = estimate_num_lz_matches_fast(part1) as f64 / part1.len() as f64;
+    let matches2 = estimate_num_lz_matches_fast(part2) as f64 / part2.len() as f64;
+
+    // Calculate entropies
+    let mut hist1 = Histogram32::default();
+    let mut hist2 = Histogram32::default();
+    histogram32_from_bytes(part1, &mut hist1);
+    histogram32_from_bytes(part2, &mut hist2);
+    
+    let entropy1 = code_length_of_histogram32(&hist1, part1.len() as u64);
+    let entropy2 = code_length_of_histogram32(&hist2, part2.len() as u64);
+
+    // Check for significant differences
+    let significant_matches = matches1 > (matches2 * MATCH_RATIO_THRESHOLD) || 
+                              matches2 > (matches1 * MATCH_RATIO_THRESHOLD);
+    let significant_entropy = (entropy1 - entropy2).abs() > ENTROPY_THRESHOLD;
+
+    significant_matches || significant_entropy
+}
+```
+
+This is similar to what I do for BC7 blocks in my own [dxt-lossless-transform] project (soon).
+
+Tip: Compressors dynamically adapt the entropy state of the data being compressed
+periodically as the data is being compressed (by resetting entropy table, etc.). Making smaller
+chunks of data within a file more similar therefore improves compression. (Even if entropy of the
+file as a whole is unchanged)
+
+### Example: Transforming Data
+
+In this case, you have data that is not being rearranged, but instead being transformed (mutated)
+in a reversible way.
+
+```rust
+fn encode_delta_diff<T>(data: &mut [T]) 
+where 
+    T: Copy + std::ops::Sub<Output = T> + Default
+{
+    let mut prev = T::default(); // Equivalent to 0 for numeric types
+    for item in data.iter_mut() {
+        let v = *item;
+        *item = v - prev;
+        prev = v;
+    }
+}
+
+fn decode_delta_diff<T>(data: &mut [T]) 
+where 
+    T: Copy + std::ops::Add<Output = T> + Default
+{
+    let mut prev = T::default();
+    for item in data.iter_mut() {
+        let v = *item;
+        let new_v = prev + v;
+        *item = new_v;
+        prev = new_v;
+    }
+}
+```
+
+[An example from "Reorder floats + Delta" from Aras' excellent blog][aras-blog], translated to Rust.
+
+More details on linked blog, but essentially, if you're encoding 'differences', then more patterns
+may emerge in the data. Longer runs of bytes, or more repeated bytes.
+
+In this case, when you have a 'transformed' and 'non-transformed' variant, you want to follow
+the same steps as when [splitting data](#example-splitting-data).
+
 [codecov]: https://about.codecov.io/
 [crates-io-key]: https://crates.io/settings/tokens
 [nuget-key]: https://www.nuget.org/account/apikeys
+[dxt-lossless-transform]: https://github.com/Sewer56/dxt-lossless-transform
+[aras-blog]: https://aras-p.info/blog/2023/02/01/Float-Compression-3-Filters/
