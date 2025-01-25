@@ -342,6 +342,53 @@ may emerge in the data. Longer runs of bytes, or more repeated bytes.
 In this case, when you have a 'transformed' and 'non-transformed' variant, you want to follow
 the same steps as when [splitting data](#example-splitting-data).
 
+### Example: Estimate File Size
+
+This is a very 'rough', makeshift estimate.
+
+Don't use as estimate of actual file size, but do use with other results from this function.
+i.e. You can use this to know if file will be smaller than before; after compression.
+
+```rust
+use lossless_transform_utils::{
+    entropy::*,
+    histogram::*,
+    match_estimator::*,
+};
+
+/// Estimates the compressed size of data in bytes
+/// 
+/// # Arguments
+/// 
+/// * `data` - The input data to estimate compressed size for
+/// 
+/// # Returns
+/// 
+/// Estimated size in bytes after compression
+pub fn size_estimate(data: &[u8]) -> usize {
+    // Estimate number of LZ matches
+    let num_matches = estimate_num_lz_matches_fast(data);
+
+    // Calculate expected bytes after LZ
+    // Not entirely accurate since we don't factor in the length of each match
+    // but it's good enough for comparing against other files. In practice, many
+    // matches are short, so this wouldn't even be that far off.
+    let bytes_after_lz = data.len() - num_matches;
+
+    // Calculate entropy using histogram
+    let mut histogram = Histogram32::default();
+    histogram32_from_bytes(data, &mut histogram);
+    let bits_per_byte = code_length_of_histogram32(&histogram, data.len() as u64);
+
+    // Calculate expected bits. Result from LZ, 
+    // and now with entropy coding (multiply by bits per byte)
+    let expected_bits = (bytes_after_lz) as f64 * bits_per_byte;
+
+    // Convert to bytes, rounding up
+    expected_bits.ceil() as usize / 8
+}
+```
+
 [codecov]: https://about.codecov.io/
 [crates-io-key]: https://crates.io/settings/tokens
 [nuget-key]: https://www.nuget.org/account/apikeys
