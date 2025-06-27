@@ -364,8 +364,8 @@ unsafe extern "stdcall" fn process_four_u32_bmi(
     );
 }
 
-#[inline(never)]
-unsafe extern "cdecl" fn process_four_u32_generic(
+#[inline(never)] // extern "C" == cdecl
+unsafe extern "C" fn process_four_u32_generic(
     histo_ptr: *mut u32,
     values_ptr: &mut *const u32,
     ptr_end_unroll: *const u32,
