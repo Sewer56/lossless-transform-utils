@@ -95,6 +95,7 @@ jobs:
           target: ${{ matrix.target }}
           features: ${{ matrix.features }}
           rust-toolchain: "nightly"
+          codecov-token: ${{ secrets.CODECOV_TOKEN }}
 
   build-c-headers:
     runs-on: ubuntu-latest
