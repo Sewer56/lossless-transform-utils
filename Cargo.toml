@@ -34,7 +34,7 @@ estimator-avx2 = []
 estimator-avx512 = ["nightly"]
 
 [dependencies]
-safe-allocator-api = "0.3.0"
+safe-allocator-api = "0.4.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dev-dependencies]
