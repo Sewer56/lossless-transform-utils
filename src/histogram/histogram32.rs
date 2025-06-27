@@ -477,8 +477,7 @@ mod alternative_implementation_tests {
 
             assert_eq!(
                 implementation_result.inner.counter, reference_result.inner.counter,
-                "Implementation failed for size {}",
-                size
+                "Implementation failed for size {size}"
             );
         }
     }

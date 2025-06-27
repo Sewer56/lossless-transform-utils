@@ -320,7 +320,7 @@ mod tests {
             if test_size == 1 << 17 {
                 "128k".to_owned()
             } else {
-                format!("long_distance_{}", test_size)
+                format!("long_distance_{test_size}")
             },
             matches,
             expected,
@@ -330,9 +330,7 @@ mod tests {
         assert!(
             matches < expected,
             "Sequence with no repetitions should have very few matches, \
-             but got {} matches, expected at most {}",
-            matches,
-            expected
+             but got {matches} matches, expected at most {expected}"
         );
     }
 
@@ -403,14 +401,11 @@ mod tests {
         // Assert against minimum matches based on empirical results
         assert!(
             matches >= min_matches,
-            "Got {} matches, which is below minimum threshold of {}",
-            matches,
-            min_matches
+            "Got {matches} matches, which is below minimum threshold of {min_matches}"
         );
 
         println!(
-            "[res:matches_{}_intervals_{}] matches: {}, expected: < {}, minimum: {}, found: {:.1}%",
-            match_interval, test_size, matches, expected, min_matches, percentage
+            "[res:matches_{match_interval}_intervals_{test_size}] matches: {matches}, expected: < {expected}, minimum: {min_matches}, found: {percentage:.1}%"
         ); // cargo test -- --nocapture | grep -i "^\[res:"
     }
 

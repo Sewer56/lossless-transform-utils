@@ -65,7 +65,7 @@ pub fn run_match_estimator_benchmarks(c: &mut Criterion) {
             // etc.
             let repeated_bytes: Vec<u8> = (0..SIZE).map(|x| (x / repeat) as u8).collect();
             group.bench_with_input(
-                BenchmarkId::new(format!("repeated_data_len_{}", repeat), SIZE),
+                BenchmarkId::new(format!("repeated_data_len_{repeat}"), SIZE),
                 &repeated_bytes,
                 |b, repeated_data| {
                     b.iter(|| estimate_num_lz_matches_fast(black_box(repeated_data)));
