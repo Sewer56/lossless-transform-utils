@@ -55,7 +55,7 @@ pub unsafe extern "C" fn histogram32_from_bytes(
 /// too.
 #[no_mangle]
 pub unsafe extern "C" fn histogram32_get_count(hist: *const Histogram32, byte: u8) -> u32 {
-    (*hist).counter[byte as usize]
+    (&(*hist)).counter[byte as usize]
 }
 
 /// Gets a pointer to the array of counts.
@@ -71,7 +71,7 @@ pub unsafe extern "C" fn histogram32_get_count(hist: *const Histogram32, byte: u
 /// too.
 #[no_mangle]
 pub unsafe extern "C" fn histogram32_get_counts(hist: *const Histogram32) -> *const u32 {
-    (*hist).counter.as_ptr()
+    (&(*hist)).counter.as_ptr()
 }
 
 /// Calculates the Shannon entropy of a histogram using floating point arithmetic.
@@ -102,7 +102,7 @@ pub unsafe extern "C" fn shannon_entropy_of_histogram32(
     hist: *const Histogram32,
     total: u64,
 ) -> f64 {
-    crate::entropy::shannon_entropy_of_histogram32(&(*hist).counter, total)
+    crate::entropy::shannon_entropy_of_histogram32(&(&(*hist)).counter, total)
 }
 
 /// Calculates the ideal code length in bits for a given histogram.
