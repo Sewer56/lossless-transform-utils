@@ -17,13 +17,25 @@ use core::slice;
 ///
 /// # Arguments
 ///
-/// * [data] - Address to the first element
-/// * [length] - Length of the array
+/// * `data` - Pointer to the first byte of the input data array
+/// * `length` - Number of bytes in the input data array
+/// * `hist` - Pointer to a [`Histogram32`] struct that will be populated with the results
 ///
 /// # Returns
 ///
-/// Returns a [Histogram32] struct containing the computed histogram.
-/// Each element in the histogram represents the count of occurrences for a byte value (0-255).
+/// This function does not return a value. The histogram results are written to the
+/// [`Histogram32`] struct pointed to by `hist`. Each element in the histogram represents
+/// the count of occurrences for a byte value (0-255).
+///
+/// # Example
+///
+/// ```c
+/// // C code example
+/// uint8_t data[] = {1, 2, 3, 1, 2, 1};
+/// Histogram32 hist = {0}; // Initialize to zero
+/// histogram32_from_bytes(data, sizeof(data), &hist);
+/// // hist.inner.counter[1] will now be 3 (byte 1 appears 3 times)
+/// ```
 ///
 /// # Notes
 ///
@@ -33,7 +45,10 @@ use core::slice;
 ///
 /// # Safety
 ///
-/// This function assumes the provided address, length and histogram are valid.
+/// This function assumes the provided pointers and length are valid:
+/// - `data` must point to a valid memory region of at least `length` bytes
+/// - `hist` must point to a valid, writable [`Histogram32`] struct
+/// - The caller is responsible for ensuring the memory regions don't overlap in undefined ways
 #[no_mangle]
 pub unsafe extern "C" fn histogram32_from_bytes(
     data: *const u8,
@@ -45,9 +60,30 @@ pub unsafe extern "C" fn histogram32_from_bytes(
 
 /// Gets the count for a specific byte value from the histogram.
 ///
+/// # Arguments
+///
+/// * `hist` - Pointer to a [`Histogram32`] struct containing the histogram data
+/// * `byte` - The byte value (0-255) to get the count for
+///
+/// # Returns
+///
+/// The number of times the specified byte value appears in the histogram.
+/// Returns 0 if the byte value has not been seen.
+///
+/// # Example
+///
+/// ```c
+/// // C code example
+/// uint8_t data[] = {1, 2, 3, 1, 2, 1};
+/// Histogram32 hist = {0};
+/// histogram32_from_bytes(data, sizeof(data), &hist);
+/// uint32_t count = histogram32_get_count(&hist, 1); // Returns 3
+/// ```
+///
 /// # Safety
 ///
 /// The caller must ensure `hist` points to a valid [`Histogram32`] struct.
+/// Passing a null pointer or invalid pointer will result in undefined behavior.
 ///
 /// # Remarks
 ///
@@ -60,9 +96,31 @@ pub unsafe extern "C" fn histogram32_get_count(hist: *const Histogram32, byte: u
 
 /// Gets a pointer to the array of counts.
 ///
+/// # Arguments
+///
+/// * `hist` - Pointer to a [`Histogram32`] struct containing the histogram data
+///
+/// # Returns
+///
+/// A pointer to the internal array of 256 `uint32_t` values representing byte occurrence counts.
+/// The array is indexed by byte value (0-255), so `counts[42]` gives the count for byte value 42.
+/// The returned pointer is valid as long as the histogram exists and is not modified.
+///
+/// # Example
+///
+/// ```c
+/// // C code example
+/// uint8_t data[] = {1, 2, 3, 1, 2, 1};
+/// Histogram32 hist = {0};
+/// histogram32_from_bytes(data, sizeof(data), &hist);
+/// const uint32_t* counts = histogram32_get_counts(&hist);
+/// uint32_t count_for_byte_1 = counts[1]; // Returns 3
+/// ```
+///
 /// # Safety
 ///
 /// The caller must ensure `hist` points to a valid [`Histogram32`] struct.
+/// Passing a null pointer or invalid pointer will result in undefined behavior.
 /// The returned pointer is valid as long as the histogram exists and is not modified.
 ///
 /// # Remarks
@@ -81,17 +139,30 @@ pub unsafe extern "C" fn histogram32_get_counts(hist: *const Histogram32) -> *co
 ///
 /// # Arguments
 ///
-/// * `hist` - A pointer to a [Histogram32] containing symbol counts
-/// * `total` - The total count of all symbols
+/// * `hist` - A pointer to a [`Histogram32`] containing symbol counts
+/// * `total` - The total count of all symbols (should equal the sum of all histogram counts)
 ///
 /// # Returns
 ///
-/// The Shannon entropy in bits. i.e. the average number of bits needed to represent each symbol
+/// The Shannon entropy in bits. i.e. the average number of bits needed to represent each symbol.
+/// Values range from 0.0 (perfectly compressible, single symbol) to 8.0 (maximum entropy, uniform distribution).
+///
+/// # Example
+///
+/// ```c
+/// // C code example
+/// uint8_t data[] = {1, 2, 3, 1, 2, 1}; // 6 bytes total
+/// Histogram32 hist = {0};
+/// histogram32_from_bytes(data, sizeof(data), &hist);
+/// double entropy = shannon_entropy_of_histogram32(&hist, 6);
+/// // Returns entropy value, lower means more compressible
+/// ```
 ///
 /// # Safety
 ///
 /// The caller must ensure `hist` points to a valid [`Histogram32`] struct.
-/// This API does not validate this, passing a null pointer will crash the program.
+/// This API does not validate input parameters, passing a null pointer will result in undefined behavior.
+/// The `total` parameter should accurately represent the sum of all counts in the histogram.
 ///
 /// # Notes
 ///
@@ -110,17 +181,30 @@ pub unsafe extern "C" fn shannon_entropy_of_histogram32(
 ///
 /// # Arguments
 ///
-/// * `hist` - A pointer to a [Histogram32] containing symbol counts
-/// * `total` - The total count of all symbols (total bytes in input data fed to histogram)
+/// * `hist` - A pointer to a [`Histogram32`] containing symbol counts
+/// * `total` - The total count of all symbols (should equal the sum of all histogram counts)
 ///
 /// # Returns
 ///
-/// The ideal code length in bits
+/// The ideal code length in bits. This represents the theoretical minimum number of bits
+/// needed to encode the data using optimal entropy coding.
+///
+/// # Example
+///
+/// ```c
+/// // C code example
+/// uint8_t data[] = {1, 2, 3, 1, 2, 1}; // 6 bytes total
+/// Histogram32 hist = {0};
+/// histogram32_from_bytes(data, sizeof(data), &hist);
+/// double code_length = code_length_of_histogram32(&hist, 6);
+/// // Returns theoretical minimum bits needed to encode this data
+/// ```
 ///
 /// # Safety
 ///
 /// The caller must ensure `hist` points to a valid [`Histogram32`] struct.
-/// This API does not validate this, passing a null pointer will crash the program.
+/// This API does not validate input parameters, passing a null pointer will result in undefined behavior.
+/// The `total` parameter should accurately represent the sum of all counts in the histogram.
 #[no_mangle]
 pub unsafe extern "C" fn code_length_of_histogram32(hist: *const Histogram32, total: u64) -> f64 {
     crate::entropy::code_length_of_histogram32(&(*hist), total)
@@ -129,20 +213,33 @@ pub unsafe extern "C" fn code_length_of_histogram32(hist: *const Histogram32, to
 /// Calculates the ideal code length in bits for a given histogram.
 /// This lets us estimate how compressible the data is during 'entropy coding' steps.
 ///
-/// Unlike [code_length_of_histogram32], this function calculates the total internally.
+/// Unlike [`code_length_of_histogram32`], this function calculates the total internally
+/// by summing all the counts in the histogram.
 ///
 /// # Arguments
 ///
-/// * `hist` - A pointer to a [Histogram32] containing symbol counts
+/// * `hist` - A pointer to a [`Histogram32`] containing symbol counts
 ///
 /// # Returns
 ///
-/// The ideal code length in bits
+/// The ideal code length in bits. This represents the theoretical minimum number of bits
+/// needed to encode the data using optimal entropy coding.
+///
+/// # Example
+///
+/// ```c
+/// // C code example
+/// uint8_t data[] = {1, 2, 3, 1, 2, 1};
+/// Histogram32 hist = {0};
+/// histogram32_from_bytes(data, sizeof(data), &hist);
+/// double code_length = code_length_of_histogram32_no_size(&hist);
+/// // Automatically calculates total from histogram and returns code length
+/// ```
 ///
 /// # Safety
 ///
 /// The caller must ensure `hist` points to a valid [`Histogram32`] struct.
-/// This API does not validate this, passing a null pointer will crash the program.
+/// This API does not validate input parameters, passing a null pointer will result in undefined behavior.
 #[no_mangle]
 pub unsafe extern "C" fn code_length_of_histogram32_no_size(hist: *const Histogram32) -> f64 {
     crate::entropy::code_length_of_histogram32_no_size(&(*hist))
@@ -154,14 +251,24 @@ pub unsafe extern "C" fn code_length_of_histogram32_no_size(hist: *const Histogr
 ///
 /// # Arguments
 ///
-/// * `bytes` - The input data stream.
+/// * `data` - Pointer to the input data stream to analyze
+/// * `len` - Length of the input data stream in bytes
 ///
 /// # Returns
 ///
-/// The estimate number of >=3 byte LZ matches.
-/// This number is an estimate, it is not an exact amount.
+/// The estimated number of >=3 byte LZ matches that could be found in the data.
+/// This number is an estimate, not an exact count.
 ///
-/// # Remarks
+/// # Example
+///
+/// ```c
+/// // C code example
+/// uint8_t data[] = "hello world hello world hello";
+/// size_t matches = estimate_num_lz_matches_fast(data, strlen((char*)data));
+/// // Returns an estimate of repeated sequences of 3+ bytes
+/// ```
+///
+/// # Notes
 ///
 /// This function is optimized around more modern speedy LZ compressors; namely, those which
 /// match 3 or more bytes at a time.
@@ -172,8 +279,9 @@ pub unsafe extern "C" fn code_length_of_histogram32_no_size(hist: *const Histogr
 ///
 /// # Safety
 ///
-/// The caller must ensure `data` points to a valid region of memory of length `len`.
-/// This API does not validate this, passing a null pointer will crash the program.
+/// The caller must ensure `data` points to a valid region of memory of at least `len` bytes.
+/// This API does not validate input parameters, passing a null pointer or invalid length will
+/// result in undefined behavior.
 #[no_mangle]
 pub unsafe extern "C" fn estimate_num_lz_matches_fast(data: *const u8, len: usize) -> usize {
     match_estimator::estimate_num_lz_matches_fast(slice::from_raw_parts(data, len))
