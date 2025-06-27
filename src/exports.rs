@@ -178,3 +178,234 @@ pub unsafe extern "C" fn code_length_of_histogram32_no_size(hist: *const Histogr
 pub unsafe extern "C" fn estimate_num_lz_matches_fast(data: *const u8, len: usize) -> usize {
     match_estimator::estimate_num_lz_matches_fast(slice::from_raw_parts(data, len))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::histogram::Histogram32;
+
+    #[test]
+    fn test_histogram32_from_bytes() {
+        let test_data = [1u8, 2, 3, 1, 2, 1, 0, 255];
+        let mut c_histogram = Histogram32::default();
+        let mut rust_histogram = Histogram32::default();
+
+        unsafe {
+            histogram32_from_bytes(test_data.as_ptr(), test_data.len(), &mut c_histogram);
+        }
+        crate::histogram::histogram32_from_bytes(&test_data, &mut rust_histogram);
+
+        // Both histograms should be identical
+        assert_eq!(c_histogram.counter, rust_histogram.counter);
+
+        // Verify specific counts
+        assert_eq!(c_histogram.counter[0], 1); // byte 0 appears once
+        assert_eq!(c_histogram.counter[1], 3); // byte 1 appears three times
+        assert_eq!(c_histogram.counter[2], 2); // byte 2 appears twice
+        assert_eq!(c_histogram.counter[3], 1); // byte 3 appears once
+        assert_eq!(c_histogram.counter[255], 1); // byte 255 appears once
+    }
+
+    #[test]
+    fn test_histogram32_get_count() {
+        let test_data = [1u8, 2, 3, 1, 2, 1];
+        let mut histogram = Histogram32::default();
+        crate::histogram::histogram32_from_bytes(&test_data, &mut histogram);
+
+        unsafe {
+            assert_eq!(histogram32_get_count(&histogram, 0), 0);
+            assert_eq!(histogram32_get_count(&histogram, 1), 3);
+            assert_eq!(histogram32_get_count(&histogram, 2), 2);
+            assert_eq!(histogram32_get_count(&histogram, 3), 1);
+            assert_eq!(histogram32_get_count(&histogram, 4), 0);
+        }
+    }
+
+    #[test]
+    fn test_histogram32_get_counts() {
+        let test_data = [1u8, 2, 3, 1, 2, 1];
+        let mut histogram = Histogram32::default();
+        crate::histogram::histogram32_from_bytes(&test_data, &mut histogram);
+
+        unsafe {
+            let counts_ptr = histogram32_get_counts(&histogram);
+            assert!(!counts_ptr.is_null());
+
+            // Verify we can access the counts through the pointer
+            assert_eq!(*counts_ptr.add(0), 0);
+            assert_eq!(*counts_ptr.add(1), 3);
+            assert_eq!(*counts_ptr.add(2), 2);
+            assert_eq!(*counts_ptr.add(3), 1);
+            assert_eq!(*counts_ptr.add(4), 0);
+
+            // Verify the pointer points to the same data as the original histogram
+            assert_eq!(counts_ptr, histogram.counter.as_ptr());
+        }
+    }
+
+    #[test]
+    fn test_shannon_entropy_of_histogram32() {
+        let test_data = [1u8, 2, 3, 1, 2, 1]; // 3 ones, 2 twos, 1 three
+        let mut histogram = Histogram32::default();
+        crate::histogram::histogram32_from_bytes(&test_data, &mut histogram);
+        let total = test_data.len() as u64;
+
+        let rust_entropy =
+            crate::entropy::shannon_entropy_of_histogram32(&histogram.counter, total);
+        let c_entropy = unsafe { shannon_entropy_of_histogram32(&histogram, total) };
+
+        // Should be exactly equal since they use the same implementation
+        assert_eq!(rust_entropy, c_entropy);
+        assert!(c_entropy > 0.0);
+    }
+
+    #[test]
+    fn test_code_length_of_histogram32() {
+        let test_data = [1u8, 2, 3, 1, 2, 1];
+        let mut histogram = Histogram32::default();
+        crate::histogram::histogram32_from_bytes(&test_data, &mut histogram);
+        let total = test_data.len() as u64;
+
+        let rust_code_length = crate::entropy::code_length_of_histogram32(&histogram, total);
+        let c_code_length = unsafe { code_length_of_histogram32(&histogram, total) };
+
+        assert_eq!(rust_code_length, c_code_length);
+        assert!(c_code_length > 0.0);
+    }
+
+    #[test]
+    fn test_code_length_of_histogram32_no_size() {
+        let test_data = [1u8, 2, 3, 1, 2, 1];
+        let mut histogram = Histogram32::default();
+        crate::histogram::histogram32_from_bytes(&test_data, &mut histogram);
+
+        let rust_code_length = crate::entropy::code_length_of_histogram32_no_size(&histogram);
+        let c_code_length = unsafe { code_length_of_histogram32_no_size(&histogram) };
+
+        assert_eq!(rust_code_length, c_code_length);
+        assert!(c_code_length > 0.0);
+    }
+
+    #[test]
+    fn test_estimate_num_lz_matches_fast() {
+        // Test with data that has some repetition
+        let test_data = b"hello world hello world hello";
+
+        let rust_estimate = match_estimator::estimate_num_lz_matches_fast(test_data);
+        let c_estimate =
+            unsafe { estimate_num_lz_matches_fast(test_data.as_ptr(), test_data.len()) };
+
+        assert_eq!(rust_estimate, c_estimate);
+    }
+
+    #[test]
+    fn test_estimate_num_lz_matches_fast_empty() {
+        let test_data = b"";
+
+        let rust_estimate = match_estimator::estimate_num_lz_matches_fast(test_data);
+        let c_estimate =
+            unsafe { estimate_num_lz_matches_fast(test_data.as_ptr(), test_data.len()) };
+
+        assert_eq!(rust_estimate, c_estimate);
+        assert_eq!(c_estimate, 0);
+    }
+
+    #[test]
+    fn test_estimate_num_lz_matches_fast_small() {
+        let test_data = b"ab";
+
+        let rust_estimate = match_estimator::estimate_num_lz_matches_fast(test_data);
+        let c_estimate =
+            unsafe { estimate_num_lz_matches_fast(test_data.as_ptr(), test_data.len()) };
+
+        assert_eq!(rust_estimate, c_estimate);
+    }
+
+    #[test]
+    fn test_histogram_with_empty_data() {
+        let test_data: &[u8] = &[];
+        let mut c_histogram = Histogram32::default();
+        let mut rust_histogram = Histogram32::default();
+
+        unsafe {
+            histogram32_from_bytes(test_data.as_ptr(), test_data.len(), &mut c_histogram);
+        }
+        crate::histogram::histogram32_from_bytes(test_data, &mut rust_histogram);
+
+        assert_eq!(c_histogram.counter, rust_histogram.counter);
+
+        // All counts should be zero
+        for count in c_histogram.counter.iter() {
+            assert_eq!(*count, 0);
+        }
+    }
+
+    #[test]
+    fn test_histogram_with_all_same_byte() {
+        let test_data = [42u8; 100];
+        let mut c_histogram = Histogram32::default();
+        let mut rust_histogram = Histogram32::default();
+
+        unsafe {
+            histogram32_from_bytes(test_data.as_ptr(), test_data.len(), &mut c_histogram);
+        }
+        crate::histogram::histogram32_from_bytes(&test_data, &mut rust_histogram);
+
+        assert_eq!(c_histogram.counter, rust_histogram.counter);
+        assert_eq!(c_histogram.counter[42], 100);
+
+        // All other counts should be zero
+        for (i, count) in c_histogram.counter.iter().enumerate() {
+            if i == 42 {
+                assert_eq!(*count, 100);
+            } else {
+                assert_eq!(*count, 0);
+            }
+        }
+    }
+
+    #[test]
+    fn test_histogram_with_full_byte_range() {
+        let test_data: [u8; 256] = core::array::from_fn(|i| i as u8);
+        let mut c_histogram = Histogram32::default();
+        let mut rust_histogram = Histogram32::default();
+
+        unsafe {
+            histogram32_from_bytes(test_data.as_ptr(), test_data.len(), &mut c_histogram);
+        }
+        crate::histogram::histogram32_from_bytes(&test_data, &mut rust_histogram);
+
+        assert_eq!(c_histogram.counter, rust_histogram.counter);
+
+        // Every byte should appear exactly once
+        for count in c_histogram.counter.iter() {
+            assert_eq!(*count, 1);
+        }
+    }
+
+    #[test]
+    fn test_entropy_edge_cases() {
+        // Test with uniform distribution
+        let uniform_data: [u8; 256] = core::array::from_fn(|i| i as u8);
+        let mut histogram = Histogram32::default();
+        crate::histogram::histogram32_from_bytes(&uniform_data, &mut histogram);
+        let total = uniform_data.len() as u64;
+
+        let entropy = unsafe { shannon_entropy_of_histogram32(&histogram, total) };
+
+        // Uniform distribution should have entropy close to 8 bits
+        assert!((entropy - 8.0).abs() < 0.001);
+
+        // Test with single symbol (minimum entropy)
+        let single_symbol_data = [42u8; 100];
+        let mut single_histogram = Histogram32::default();
+        crate::histogram::histogram32_from_bytes(&single_symbol_data, &mut single_histogram);
+        let single_total = single_symbol_data.len() as u64;
+
+        let single_entropy =
+            unsafe { shannon_entropy_of_histogram32(&single_histogram, single_total) };
+
+        // Single symbol should have entropy of 0
+        assert_eq!(single_entropy, 0.0);
+    }
+}
