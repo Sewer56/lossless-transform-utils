@@ -34,7 +34,7 @@ use core::slice;
 /// uint8_t data[] = {1, 2, 3, 1, 2, 1};
 /// Histogram32 hist = {0}; // Initialize to zero
 /// histogram32_from_bytes(data, sizeof(data), &hist);
-/// // hist.inner.counter[1] will now be 3 (byte 1 appears 3 times)
+/// // hist.Inner.Counter[1] will now be 3 (byte 1 appears 3 times)
 /// ```
 ///
 /// # Notes
