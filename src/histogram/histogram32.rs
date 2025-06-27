@@ -279,7 +279,7 @@ unsafe extern "sysv64" fn process_four_u32_bmi(
 }
 
 #[cfg(feature = "nightly")]
-#[naked]
+#[unsafe(naked)]
 #[cfg(target_arch = "x86")]
 #[target_feature(enable = "bmi1")]
 /// From a i686 linux machine with native zen3 target.
