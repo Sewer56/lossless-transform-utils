@@ -10,15 +10,24 @@ mod histogram;
 mod match_estimator;
 
 // Benchmark group configuration
-#[cfg(not(target_os = "windows"))]
+#[cfg(all(
+    any(target_os = "linux", target_os = "macos"),
+    any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")
+))]
 use pprof::criterion::{Output, PProfProfiler};
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(all(
+    any(target_os = "linux", target_os = "macos"),
+    any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")
+))]
 pub fn get_benchmark_config() -> Criterion {
     Criterion::default().with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)))
 }
 
-#[cfg(target_os = "windows")]
+#[cfg(not(all(
+    any(target_os = "linux", target_os = "macos"),
+    any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")
+)))]
 pub fn get_benchmark_config() -> Criterion {
     Criterion::default()
 }

@@ -217,9 +217,7 @@ mod tests {
 
         assert!(
             (fast - slow).abs() < 1e-10,
-            "Non-zero case mismatch: fast={} slow={}",
-            fast,
-            slow
+            "Non-zero case mismatch: fast={fast} slow={slow}"
         );
     }
 }

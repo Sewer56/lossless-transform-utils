@@ -2,16 +2,25 @@ use criterion::*;
 use lossless_transform_utils::match_estimator::estimate_num_lz_matches_fast;
 
 // Benchmark group configuration
-#[cfg(not(target_os = "windows"))]
+#[cfg(all(
+    any(target_os = "linux", target_os = "macos"),
+    any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")
+))]
 use pprof::criterion::{Output, PProfProfiler};
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(all(
+    any(target_os = "linux", target_os = "macos"),
+    any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")
+))]
 #[allow(dead_code)]
 pub(crate) fn get_benchmark_config() -> Criterion {
     Criterion::default().with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)))
 }
 
-#[cfg(target_os = "windows")]
+#[cfg(not(all(
+    any(target_os = "linux", target_os = "macos"),
+    any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")
+)))]
 #[allow(dead_code)]
 pub(crate) fn get_benchmark_config() -> Criterion {
     Criterion::default()
@@ -56,7 +65,7 @@ pub fn run_match_estimator_benchmarks(c: &mut Criterion) {
             // etc.
             let repeated_bytes: Vec<u8> = (0..SIZE).map(|x| (x / repeat) as u8).collect();
             group.bench_with_input(
-                BenchmarkId::new(format!("repeated_data_len_{}", repeat), SIZE),
+                BenchmarkId::new(format!("repeated_data_len_{repeat}"), SIZE),
                 &repeated_bytes,
                 |b, repeated_data| {
                     b.iter(|| estimate_num_lz_matches_fast(black_box(repeated_data)));

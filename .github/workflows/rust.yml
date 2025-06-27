@@ -51,25 +51,28 @@ jobs:
           features: "c-exports,bench,nightly"
           build-library: true
           run-tests-and-coverage: true
-          use-tarpaulin: false # Currently broken on nightly :(
           codecov-token: ${{ secrets.CODECOV_TOKEN }}
+
+      # Temporarily disabled because fails CI for non-x86 targets.
       # Note: The GitHub Runner Images will contain an up to date Rust Stable Toolchain
       #       thus as per recommendation of cargo-semver-checks, we're using stable here.
       #
       # Note to reader. If adding this to a new repo, please clear cache.
-      - name: Run cargo-semver-checks
-        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/')
-        shell: bash
-        run: |
-          SEARCH_RESULT=$(cargo search "^lossless-transform-utils$" --limit 1)
+      #- name: Run cargo-semver-checks
+      #  if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/')
+      #  shell: bash
+      #  run: |
+      #    SEARCH_RESULT=$(cargo search "^lossless-transform-utils$" --limit 1)
 
-          if echo "$SEARCH_RESULT" | grep -q "^lossless-transform-utils "; then
-            rustup target add ${{ matrix.target }}
-            cargo install cargo-semver-checks
-            cargo semver-checks --target ${{ matrix.target }} --features c-exports
-          else
-              echo "No previous version found on crates.io. Skipping semver checks."
-          fi
+      #    if echo "$SEARCH_RESULT" | grep -q "^lossless-transform-utils "; then
+      #      # Run semver checks on stable, because nightly sometimes gets borked in cargo-semver-checks.
+      #      rustup +stable target add ${{ matrix.target }}
+      #      # Note: binstall is available after devops-rust-lightweight-binary@v1 call
+      #      cargo binstall --no-confirm cargo-semver-checks
+      #      cargo +stable semver-checks --target ${{ matrix.target }} --features c-exports
+      #    else
+      #        echo "No previous version found on crates.io. Skipping semver checks."
+      #    fi
 
   # Configurations not recommended for use; or not fully tested,
   # but which exist within the codebase. We want to make sure we can build
@@ -93,7 +96,7 @@ jobs:
           target: ${{ matrix.target }}
           features: ${{ matrix.features }}
           rust-toolchain: "nightly"
-          use-tarpaulin: false
+          codecov-token: ${{ secrets.CODECOV_TOKEN }}
 
   build-c-headers:
     runs-on: ubuntu-latest

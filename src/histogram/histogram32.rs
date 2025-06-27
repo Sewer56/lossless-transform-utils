@@ -279,7 +279,7 @@ unsafe extern "sysv64" fn process_four_u32_bmi(
 }
 
 #[cfg(feature = "nightly")]
-#[naked]
+#[unsafe(naked)]
 #[cfg(target_arch = "x86")]
 #[target_feature(enable = "bmi1")]
 /// From a i686 linux machine with native zen3 target.
@@ -364,8 +364,8 @@ unsafe extern "stdcall" fn process_four_u32_bmi(
     );
 }
 
-#[inline(never)]
-unsafe extern "cdecl" fn process_four_u32_generic(
+#[inline(never)] // extern "C" == cdecl
+unsafe extern "C" fn process_four_u32_generic(
     histo_ptr: *mut u32,
     values_ptr: &mut *const u32,
     ptr_end_unroll: *const u32,
@@ -477,8 +477,7 @@ mod alternative_implementation_tests {
 
             assert_eq!(
                 implementation_result.inner.counter, reference_result.inner.counter,
-                "Implementation failed for size {}",
-                size
+                "Implementation failed for size {size}"
             );
         }
     }
