@@ -3,6 +3,7 @@
 #![cfg_attr(feature = "nightly", feature(naked_functions))]
 #![cfg_attr(feature = "estimator-avx512", feature(stdarch_x86_avx512))]
 #![cfg_attr(feature = "estimator-avx512", feature(avx512_target_feature))]
+#![allow(stable_features)]
 
 #[cfg(feature = "c-exports")]
 pub mod exports;
