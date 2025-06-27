@@ -81,8 +81,8 @@ pub fn run_histogram_benchmarks(c: &mut Criterion) {
     for &size in PAYLOAD_SIZES {
         let mut group = c.benchmark_group("histogram");
         group.throughput(Throughput::Bytes(size as u64));
-        group.warm_up_time(Duration::from_secs(30));
-        group.measurement_time(Duration::from_secs(30));
+        group.warm_up_time(Duration::from_secs(3));
+        group.measurement_time(Duration::from_secs(5));
         let mut memcpy_buf = vec![0u8; size];
 
         // Prepare test data
