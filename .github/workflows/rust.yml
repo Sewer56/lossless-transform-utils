@@ -28,8 +28,8 @@ jobs:
           - { os: windows-latest, target: i686-pc-windows-msvc, use-cross: false, use-pgo: true  }
           # - { os: windows-latest, target: aarch64-pc-windows-msvc, use-cross: true }
           # Common Apple Targets
-          - { os: macos-13, target: x86_64-apple-darwin, use-cross: false, use-pgo: true }
-          - { os: macos-14, target: aarch64-apple-darwin, use-cross: false, use-pgo: true }
+          - { os: macos-15-intel, target: x86_64-apple-darwin, use-cross: false, use-pgo: true }
+          - { os: macos-latest, target: aarch64-apple-darwin, use-cross: false, use-pgo: true }
           # Big Endian (64-bit)
           - { os: ubuntu-latest, target: powerpc64-unknown-linux-gnu, use-cross: true, use-pgo: true  }
           # Big Endian (32-bit)
@@ -53,26 +53,21 @@ jobs:
           run-tests-and-coverage: true
           codecov-token: ${{ secrets.CODECOV_TOKEN }}
 
-      # Temporarily disabled because fails CI for non-x86 targets.
       # Note: The GitHub Runner Images will contain an up to date Rust Stable Toolchain
       #       thus as per recommendation of cargo-semver-checks, we're using stable here.
-      #
-      # Note to reader. If adding this to a new repo, please clear cache.
-      #- name: Run cargo-semver-checks
-      #  if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/')
-      #  shell: bash
-      #  run: |
-      #    SEARCH_RESULT=$(cargo search "^lossless-transform-utils$" --limit 1)
+      - name: Run cargo-semver-checks
+        if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          SEARCH_RESULT=$(cargo search "^lossless-transform-utils$" --limit 1)
 
-      #    if echo "$SEARCH_RESULT" | grep -q "^lossless-transform-utils "; then
-      #      # Run semver checks on stable, because nightly sometimes gets borked in cargo-semver-checks.
-      #      rustup +stable target add ${{ matrix.target }}
-      #      # Note: binstall is available after devops-rust-lightweight-binary@v1 call
-      #      cargo binstall --no-confirm cargo-semver-checks
-      #      cargo +stable semver-checks --target ${{ matrix.target }} --features c-exports
-      #    else
-      #        echo "No previous version found on crates.io. Skipping semver checks."
-      #    fi
+          if echo "$SEARCH_RESULT" | grep -q "^lossless-transform-utils "; then
+            rustup target add ${{ matrix.target }}
+            cargo binstall cargo-semver-checks
+            cargo semver-checks --target ${{ matrix.target }} 
+          else
+              echo "No previous version found on crates.io. Skipping semver checks."
+          fi
 
   # Configurations not recommended for use; or not fully tested,
   # but which exist within the codebase. We want to make sure we can build
