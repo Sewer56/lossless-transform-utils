@@ -1,5 +1,8 @@
 use super::{calculate_matches_generic, GOLDEN_RATIO, HASH_BITS, HASH_SIZE};
+#[cfg(target_arch = "x86_64")]
 use core::arch::x86_64::*;
+#[cfg(target_arch = "x86")]
+use core::arch::x86::*;
 
 #[target_feature(enable = "avx512f")]
 #[target_feature(enable = "avx512vl")]
