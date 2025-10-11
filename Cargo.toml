@@ -19,7 +19,7 @@ pgo = []
 # Feature for enabling C library exports.
 c-exports = []
 # Use nightly features. Which for now is 1 x86 naked routine.
-nightly = []
+nightly = ["safe-allocator-api/nightly"]
 # Enable benchmarks for non-public API items.
 bench = []
 
