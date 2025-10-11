@@ -373,7 +373,7 @@ mod tests {
             "Test size must be >= match interval"
         );
         assert!(
-            test_size % 2 == 0 && match_interval % 2 == 0,
+            test_size.is_multiple_of(2) && match_interval.is_multiple_of(2),
             "Test size and match interval must be even due to u16 alignment"
         );
 
