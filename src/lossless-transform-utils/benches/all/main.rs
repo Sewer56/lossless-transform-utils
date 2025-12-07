@@ -1,4 +1,4 @@
-// benches/histogram_benchmark/mod.rs
+// benches/all/main.rs
 use criterion::*;
 #[path = "../entropy/main.rs"]
 mod entropy;

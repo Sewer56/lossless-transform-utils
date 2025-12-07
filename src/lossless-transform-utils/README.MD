@@ -188,7 +188,7 @@ False Positives Testing:
 [res:no_matches_long_distance_16777215] matches: 11949, expected: < 16777, allowed_error: 0.1%, actual_error: 0.071%
 ```
 
-Parameters such as hash table sized were tuned for best tradeoff between performance and accuracy.
+Parameters such as hash table size were tuned for best tradeoff between performance and accuracy.
 
 ## How to use this crate
 
