@@ -190,14 +190,6 @@ False Positives Testing:
 
 Parameters such as hash table sized were tuned for best tradeoff between performance and accuracy.
 
-## Development
-
-For information on how to work with this codebase, see [README-DEV.MD](README-DEV.MD).
-
-## License
-
-Licensed under [MIT](./LICENSE).  
-
 ## How to use this crate
 
 This guide explains how to effectively use the crate to estimate and compare the
@@ -394,3 +386,11 @@ pub fn size_estimate(data: &[u8]) -> usize {
 [nuget-key]: https://www.nuget.org/account/apikeys
 [dxt-lossless-transform]: https://github.com/Sewer56/dxt-lossless-transform
 [aras-blog]: https://aras-p.info/blog/2023/02/01/Float-Compression-3-Filters/
+
+## Development
+
+For information on how to work with this codebase, see the [Developer Manual](https://reloaded-project.github.io/reloaded-templates-rust/manual/).
+
+## License
+
+Licensed under [MIT](./LICENSE).
