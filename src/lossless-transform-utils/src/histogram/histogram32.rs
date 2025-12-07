@@ -372,10 +372,10 @@ unsafe extern "C" fn process_four_u32_generic(
 ) {
     while {
         // Read four 32-bit values at once
-        let value1 = **values_ptr;
-        let value2 = *values_ptr.add(1);
-        let value3 = *values_ptr.add(2);
-        let value4 = *values_ptr.add(3);
+        let value1 = values_ptr.read_unaligned();
+        let value2 = values_ptr.add(1).read_unaligned();
+        let value3 = values_ptr.add(2).read_unaligned();
+        let value4 = values_ptr.add(3).read_unaligned();
 
         // Process first value
         *histo_ptr.add((value1 & 0xFF) as usize) += 1;
