@@ -387,9 +387,13 @@ pub fn size_estimate(data: &[u8]) -> usize {
 [dxt-lossless-transform]: https://github.com/Sewer56/dxt-lossless-transform
 [aras-blog]: https://aras-p.info/blog/2023/02/01/Float-Compression-3-Filters/
 
-## Development
+## Developer Manual
 
-For information on how to work with this codebase, see the [Developer Manual](https://reloaded-project.github.io/reloaded-templates-rust/manual/).
+For step-by-step development guidance, see the [Developer Manual](https://reloaded-project.github.io/reloaded-templates-rust/manual/).
+
+## Contributing
+
+We welcome contributions! See the [Contributing Guide](https://reloaded-project.github.io/reloaded-templates-rust/manual/#contributing) for details.
 
 ## License
 
