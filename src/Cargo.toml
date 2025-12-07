@@ -1,0 +1,23 @@
+[workspace]
+resolver = "2"
+members = ["lossless-transform-utils"]
+
+# Profile Build
+[profile.profile]
+inherits = "release"
+strip = false
+debug = true
+split-debuginfo = "off"
+
+# Benchmark Build
+[profile.bench]
+inherits = "profile"
+
+# Optimized Release Build
+[profile.release]
+codegen-units = 1
+lto = true
+strip = true
+panic = "abort"
+debug = "full"
+split-debuginfo = "packed"

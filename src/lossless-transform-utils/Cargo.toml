@@ -4,8 +4,8 @@ version = "0.1.2"
 edition = "2021"
 description = "General purpose utility methods for creating lossless transforms for various file formats."
 repository = "https://github.com/Sewer56/lossless-transform-utils"
-license-file = "LICENSE"
-include = ["src/**/*"]
+license-file = "../../LICENSE"
+include = ["src/**/*", "README.MD", "../../LICENSE"]
 readme = "README.MD"
 
 [features]
