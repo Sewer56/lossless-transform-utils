@@ -2,10 +2,6 @@ use criterion::*;
 use lossless_transform_utils::match_estimator::estimate_num_lz_matches_fast;
 use std::hint::black_box;
 
-pub(crate) fn get_benchmark_config() -> Criterion {
-    Criterion::default()
-}
-
 // Main benchmark function
 pub fn run_match_estimator_benchmarks(c: &mut Criterion) {
     const SIZE: usize = 8388608;
@@ -59,7 +55,7 @@ pub fn run_match_estimator_benchmarks(c: &mut Criterion) {
 
 criterion_group! {
     name = benches;
-    config = get_benchmark_config();
+    config = Criterion::default();
     targets = run_match_estimator_benchmarks
 }
 

@@ -3,10 +3,6 @@ pub use lossless_transform_utils::entropy::*;
 pub use lossless_transform_utils::histogram::*;
 use std::hint::black_box;
 
-pub(crate) fn get_benchmark_config() -> Criterion {
-    Criterion::default()
-}
-
 // Main benchmark function
 pub fn run_entropy_benchmarks(c: &mut Criterion) {
     const SIZE: usize = 8388608;
@@ -34,7 +30,7 @@ pub fn run_entropy_benchmarks(c: &mut Criterion) {
 
 criterion_group! {
     name = benches;
-    config = get_benchmark_config();
+    config = Criterion::default();
     targets = run_entropy_benchmarks
 }
 

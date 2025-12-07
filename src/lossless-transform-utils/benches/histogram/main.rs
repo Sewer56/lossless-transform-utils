@@ -48,10 +48,6 @@ pub fn generate_test_data(size: usize) -> Vec<u8> {
     }
 }
 
-pub fn get_benchmark_config() -> Criterion {
-    Criterion::default()
-}
-
 // Main benchmark function
 pub fn run_histogram_benchmarks(c: &mut Criterion) {
     #[cfg(not(feature = "bench"))]
@@ -200,7 +196,7 @@ pub fn run_histogram_benchmarks(c: &mut Criterion) {
 
 criterion_group! {
     name = benches;
-    config = get_benchmark_config();
+    config = Criterion::default();
     targets = run_histogram_benchmarks
 }
 
