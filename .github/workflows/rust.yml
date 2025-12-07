@@ -43,6 +43,7 @@ jobs:
         uses: Reloaded-Project/devops-rust-lightweight-binary@v1
         with:
           rust-project-path: ./src/lossless-transform-utils
+          workspace-path: ./src
           artifact-prefix: C-Library
           upload-symbols-separately: false
           target: ${{ matrix.target }}
