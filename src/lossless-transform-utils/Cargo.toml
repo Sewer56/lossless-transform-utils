@@ -41,21 +41,6 @@ safe-allocator-api = "0.5.0"
 criterion = "0.7.0"
 rstest = "0.25.0"
 
-# Profile Build
-[profile.profile]
-inherits = "release"
-debug = true
-codegen-units = 1
-lto = true
-strip = false  # No stripping!!
-
-# Optimized Release Build
-[profile.release]
-codegen-units = 1
-lto = true
-strip = true  # Automatically strip symbols from the binary.
-panic = "abort"
-
 # Benchmark Stuff
 [[bench]]
 name = "histogram"
