@@ -28,7 +28,7 @@ pub fn histogram_nonaliased_withruns_core(data: &[u8], histogram_result: &mut Hi
     unsafe {
         let mut ptr = data.as_ptr();
         let end = ptr.add(data.len());
-        let current_ptr = histogram[0].inner.counter.as_mut_ptr();
+        let current_ptr = histogram.as_mut_ptr() as *mut u32;
 
         if data.len() > 24 {
             let aligned_end = end.sub(24);
