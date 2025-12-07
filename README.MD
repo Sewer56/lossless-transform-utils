@@ -203,7 +203,7 @@ libraries for modding games. Consult experts in the field]
 To determine if one piece of data is more compressible than another, you'll want to look at two key metrics:
 
 1. [Entropy differences](#entropy) 
-2. [LZ match count differences](#lz-match-analysis)
+2. [LZ match count differences](#match-estimator)
 
 These are provided by this crate.
 
