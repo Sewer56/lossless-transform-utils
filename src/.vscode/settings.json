@@ -6,12 +6,13 @@
     "coverage-gutters.coverageFileNames": [
         "cobertura.xml"
     ],
+    "coverage-gutters.coverageReportFileName": "tarpaulin-report.html",
+    "editor.formatOnSave": true,
     "lldb.displayFormat": "auto",
     "lldb.showDisassembly": "auto",
     "lldb.dereferencePointers": false,
     "lldb.consoleMode": "commands",
     "rust-analyzer.server.extraEnv": {
-        // Enable AVX2 in code editor.
         "RUSTFLAGS": "-Ctarget-feature=+bmi1"
     },
     "rust-analyzer.cargo.features": ["bench", "c-exports"]
