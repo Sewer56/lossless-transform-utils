@@ -47,27 +47,6 @@ pub fn generate_test_data(size: usize) -> Vec<u8> {
     }
 }
 
-// Benchmark group configuration
-#[cfg(all(
-    any(target_os = "linux", target_os = "macos"),
-    any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")
-))]
-use pprof::criterion::{Output, PProfProfiler};
-
-#[cfg(all(
-    any(target_os = "linux", target_os = "macos"),
-    any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")
-))]
-#[allow(dead_code)]
-pub fn get_benchmark_config() -> Criterion {
-    Criterion::default().with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)))
-}
-
-#[cfg(not(all(
-    any(target_os = "linux", target_os = "macos"),
-    any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")
-)))]
-#[allow(dead_code)]
 pub fn get_benchmark_config() -> Criterion {
     Criterion::default()
 }
