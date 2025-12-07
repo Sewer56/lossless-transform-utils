@@ -2,7 +2,7 @@ version: 2
 updates:
   # Enable version updates for Cargo
   - package-ecosystem: "cargo"
-    directory: "/"
+    directory: "src"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -10,9 +10,6 @@ updates:
       timezone: "Etc/UTC"
     # Limit the number of open pull requests for version updates
     open-pull-requests-limit: 5
-    # Add reviewers (optional - you can customize this)
-    # reviewers:
-    #   - "your-username"
     # Add labels to categorize the PRs
     labels:
       - "dependencies"
@@ -24,7 +21,6 @@ updates:
         patterns:
           - "criterion*"
           - "rstest*"
-          - "pprof*"
         update-types:
           - "minor"
           - "patch"
@@ -40,4 +36,16 @@ updates:
       prefix-development: "Updated:"
       include: "scope"
     # Allow automatic rebasing when conflicts occur
-    rebase-strategy: "auto" 
+    rebase-strategy: "auto"
+
+  # Monitor GitHub Actions for dependency updates
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Etc/UTC"
+    labels:
+      - "dependencies"
+      - "github-actions" 
