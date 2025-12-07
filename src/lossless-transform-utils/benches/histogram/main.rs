@@ -4,6 +4,7 @@ use criterion::*;
 use lossless_transform_utils::histogram::bench::*;
 pub use lossless_transform_utils::histogram::*;
 use std::fs;
+use std::hint::black_box;
 
 // Payload sizes for benchmarking
 pub const PAYLOAD_SIZES: &[usize] = &[

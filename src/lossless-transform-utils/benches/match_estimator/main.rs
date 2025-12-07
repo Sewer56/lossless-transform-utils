@@ -1,5 +1,6 @@
 use criterion::*;
 use lossless_transform_utils::match_estimator::estimate_num_lz_matches_fast;
+use std::hint::black_box;
 
 pub(crate) fn get_benchmark_config() -> Criterion {
     Criterion::default()

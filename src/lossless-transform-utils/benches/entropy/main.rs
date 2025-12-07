@@ -1,6 +1,7 @@
 use criterion::*;
 pub use lossless_transform_utils::entropy::*;
 pub use lossless_transform_utils::histogram::*;
+use std::hint::black_box;
 
 pub(crate) fn get_benchmark_config() -> Criterion {
     Criterion::default()
