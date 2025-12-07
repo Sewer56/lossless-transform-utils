@@ -381,12 +381,6 @@ pub fn size_estimate(data: &[u8]) -> usize {
 }
 ```
 
-[codecov]: https://about.codecov.io/
-[crates-io-key]: https://crates.io/settings/tokens
-[nuget-key]: https://www.nuget.org/account/apikeys
-[dxt-lossless-transform]: https://github.com/Sewer56/dxt-lossless-transform
-[aras-blog]: https://aras-p.info/blog/2023/02/01/Float-Compression-3-Filters/
-
 ## Developer Manual
 
 For step-by-step development guidance, see the [Developer Manual](https://reloaded-project.github.io/reloaded-templates-rust/manual/).
@@ -398,3 +392,6 @@ We welcome contributions! See the [Contributing Guide](https://reloaded-project.
 ## License
 
 Licensed under [MIT](./LICENSE).
+
+[dxt-lossless-transform]: https://github.com/Sewer56/dxt-lossless-transform
+[aras-blog]: https://aras-p.info/blog/2023/02/01/Float-Compression-3-Filters/
