@@ -8,6 +8,32 @@
 
 General purpose utility methods for creating lossless transforms for various file formats.
 
+## Quick Start
+
+Add to your `Cargo.toml`:
+
+```toml
+[dependencies]
+lossless-transform-utils = "0.1.0"
+```
+
+```rust
+use lossless_transform_utils::histogram::{histogram32_from_bytes, Histogram32};
+use lossless_transform_utils::entropy::code_length_of_histogram32;
+use lossless_transform_utils::match_estimator::estimate_num_lz_matches_fast;
+
+// Calculate byte histogram
+let data = [1, 2, 3, 1, 2, 1];
+let mut histogram = Histogram32::default();
+histogram32_from_bytes(&data, &mut histogram);
+
+// Calculate entropy (bits per byte)
+let entropy = code_length_of_histogram32(&histogram, data.len() as u64);
+
+// Estimate LZ matches
+let num_matches = estimate_num_lz_matches_fast(&data);
+```
+
 ## Utilities
 
 This covers the API, a usage example and explanation for how to use the crate can be found
@@ -381,16 +407,9 @@ pub fn size_estimate(data: &[u8]) -> usize {
 }
 ```
 
-[codecov]: https://about.codecov.io/
-[crates-io-key]: https://crates.io/settings/tokens
-[nuget-key]: https://www.nuget.org/account/apikeys
-[dxt-lossless-transform]: https://github.com/Sewer56/dxt-lossless-transform
-[aras-blog]: https://aras-p.info/blog/2023/02/01/Float-Compression-3-Filters/
-
-## Development
-
-For information on how to work with this codebase, see the [Developer Manual](https://reloaded-project.github.io/reloaded-templates-rust/manual/).
-
 ## License
 
-Licensed under [MIT](./LICENSE).
+Licensed under [MIT](https://github.com/Sewer56/lossless-transform-utils/blob/main/LICENSE).
+
+[dxt-lossless-transform]: https://github.com/Sewer56/dxt-lossless-transform
+[aras-blog]: https://aras-p.info/blog/2023/02/01/Float-Compression-3-Filters/
