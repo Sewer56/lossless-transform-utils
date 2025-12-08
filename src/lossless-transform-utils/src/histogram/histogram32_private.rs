@@ -7,7 +7,7 @@ const NUM_SLICES: usize = 4;
 const SLICE_SIZE_U32S: usize = 256;
 
 /// Based on `histo_asm_scalar8_var5_core` by fabian 'ryg' giesen
-/// https://gist.github.com/rygorous/a86a5cf348922cdea357c928e32fc7e0
+/// <https://gist.github.com/rygorous/a86a5cf348922cdea357c928e32fc7e0>
 ///
 /// # Safety
 ///
@@ -19,7 +19,7 @@ const SLICE_SIZE_U32S: usize = 256;
 /// When experimenting with implementations, I don't (in general) seem to be getting benefits
 /// from preventing aliasing.
 ///
-/// The reason may be something related to https://www.agner.org/forum/viewtopic.php?t=41 .
+/// The reason may be something related to <https://www.agner.org/forum/viewtopic.php?t=41> .
 /// I did check the assembly, it's comparable (near identical) to ryg's original.
 pub fn histogram_nonaliased_withruns_core(data: &[u8], histogram_result: &mut Histogram32) {
     // 1K on stack, should be good.

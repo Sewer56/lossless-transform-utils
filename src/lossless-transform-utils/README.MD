@@ -100,7 +100,7 @@ println!("Number of LZ matches: {}", num_lz_matches);
 
 ## Crate Features
 
-- `std` [default]: Enables x86 CPU feature detection.
+- `std` (default): Enables x86 CPU feature detection.
     - Because x86 feature detection is implemented via CPU instruction, you can use
       the `std` feature in a `no_std` environment. It's just that the API needed
       here isn't available in `no_std` environments.
