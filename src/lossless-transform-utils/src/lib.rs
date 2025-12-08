@@ -1,4 +1,4 @@
-#![doc = include_str!("../README.MD")]
+#![doc = include_str!(concat!("../", env!("CARGO_PKG_README")))]
 #![no_std]
 #![cfg_attr(feature = "nightly", feature(naked_functions))]
 #![cfg_attr(
