@@ -128,7 +128,7 @@ jobs:
         uses: Reloaded-Project/devops-rust-cbindgen@v1
         with:
           rust-project-path: src/lossless-transform-utils
-          config-file: .github/cbindgen_cpp.toml
+          config-file: ../../.github/cbindgen_cpp.toml
           output-header-file: bindings_cpp.hpp
           use-cache: "true"
 
@@ -136,7 +136,7 @@ jobs:
         uses: Reloaded-Project/devops-rust-cbindgen@v1
         with:
           rust-project-path: src/lossless-transform-utils
-          config-file: .github/cbindgen_c.toml
+          config-file: ../../.github/cbindgen_c.toml
           output-header-file: bindings_c.h
           use-cache: "false" # Cache inherited from above call.
 
