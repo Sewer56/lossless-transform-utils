@@ -14,7 +14,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-lossless-transform-utils = "0.1.0"
+lossless-transform-utils = "0.1.3"
 ```
 
 ```rust
