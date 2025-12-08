@@ -4,7 +4,10 @@
 //! compression is applied to a given byte array.
 use core::alloc::Layout;
 use safe_allocator_api::RawAlloc;
-#[cfg(any(feature = "estimator-avx512", feature = "estimator-avx2"))]
+#[cfg(all(
+    any(target_arch = "x86", target_arch = "x86_64"),
+    any(feature = "estimator-avx512", feature = "estimator-avx2")
+))]
 use std::is_x86_feature_detected;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
