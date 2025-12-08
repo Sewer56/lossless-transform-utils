@@ -4,6 +4,7 @@ use criterion::*;
 use lossless_transform_utils::histogram::bench::*;
 pub use lossless_transform_utils::histogram::*;
 use std::fs;
+use std::hint::black_box;
 
 // Payload sizes for benchmarking
 pub const PAYLOAD_SIZES: &[usize] = &[
@@ -45,31 +46,6 @@ pub fn generate_test_data(size: usize) -> Vec<u8> {
         // Original synthetic data generation
         (0..size).map(|i| (i % 256) as u8).collect()
     }
-}
-
-// Benchmark group configuration
-#[cfg(all(
-    any(target_os = "linux", target_os = "macos"),
-    any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")
-))]
-use pprof::criterion::{Output, PProfProfiler};
-
-#[cfg(all(
-    any(target_os = "linux", target_os = "macos"),
-    any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")
-))]
-#[allow(dead_code)]
-pub fn get_benchmark_config() -> Criterion {
-    Criterion::default().with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)))
-}
-
-#[cfg(not(all(
-    any(target_os = "linux", target_os = "macos"),
-    any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")
-)))]
-#[allow(dead_code)]
-pub fn get_benchmark_config() -> Criterion {
-    Criterion::default()
 }
 
 // Main benchmark function
@@ -220,7 +196,7 @@ pub fn run_histogram_benchmarks(c: &mut Criterion) {
 
 criterion_group! {
     name = benches;
-    config = get_benchmark_config();
+    config = Criterion::default();
     targets = run_histogram_benchmarks
 }
 

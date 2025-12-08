@@ -1,31 +1,7 @@
 use criterion::*;
 pub use lossless_transform_utils::entropy::*;
 pub use lossless_transform_utils::histogram::*;
-
-// Benchmark group configuration
-#[cfg(all(
-    any(target_os = "linux", target_os = "macos"),
-    any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")
-))]
-use pprof::criterion::{Output, PProfProfiler};
-
-#[cfg(all(
-    any(target_os = "linux", target_os = "macos"),
-    any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")
-))]
-#[allow(dead_code)]
-pub(crate) fn get_benchmark_config() -> Criterion {
-    Criterion::default().with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)))
-}
-
-#[cfg(not(all(
-    any(target_os = "linux", target_os = "macos"),
-    any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")
-)))]
-#[allow(dead_code)]
-pub(crate) fn get_benchmark_config() -> Criterion {
-    Criterion::default()
-}
+use std::hint::black_box;
 
 // Main benchmark function
 pub fn run_entropy_benchmarks(c: &mut Criterion) {
@@ -54,7 +30,7 @@ pub fn run_entropy_benchmarks(c: &mut Criterion) {
 
 criterion_group! {
     name = benches;
-    config = get_benchmark_config();
+    config = Criterion::default();
     targets = run_entropy_benchmarks
 }
 

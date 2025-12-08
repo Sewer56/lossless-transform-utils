@@ -28,7 +28,7 @@ pub fn histogram_nonaliased_withruns_core(data: &[u8], histogram_result: &mut Hi
     unsafe {
         let mut ptr = data.as_ptr();
         let end = ptr.add(data.len());
-        let current_ptr = histogram[0].inner.counter.as_mut_ptr();
+        let current_ptr = histogram.as_mut_ptr() as *mut u32;
 
         if data.len() > 24 {
             let aligned_end = end.sub(24);
@@ -125,7 +125,7 @@ pub fn histogram32_generic_batched_u32(bytes: &[u8], histogram: &mut Histogram32
             bytes.as_ptr().add(bytes.len() & !(size_of::<u32>() - 1)) as *const u32;
 
         while current_ptr < ptr_end_unroll {
-            let value = *current_ptr;
+            let value = current_ptr.read_unaligned();
             current_ptr = current_ptr.add(1);
             *histo_ptr.add((value & 0xFF) as usize) += 1;
             *histo_ptr.add(((value >> 8) & 0xFF) as usize) += 1;
@@ -156,7 +156,7 @@ pub fn histogram32_generic_batched_u64(bytes: &[u8], histogram: &mut Histogram32
             bytes.as_ptr().add(bytes.len() & !(size_of::<u64>() - 1)) as *const u64;
 
         while current_ptr < ptr_end_unroll {
-            let value = *current_ptr;
+            let value = current_ptr.read_unaligned();
             current_ptr = current_ptr.add(1);
             *histo_ptr.add((value & 0xFF) as usize) += 1;
             *histo_ptr.add(((value >> 8) & 0xFF) as usize) += 1;
@@ -192,8 +192,8 @@ pub fn histogram32_generic_batched_unroll_2_u64(bytes: &[u8], histogram: &mut Hi
 
         while current_ptr < ptr_end_unroll {
             // Read two 64-bit values at once
-            let value1 = *current_ptr;
-            let value2 = *current_ptr.add(1);
+            let value1 = current_ptr.read_unaligned();
+            let value2 = current_ptr.add(1).read_unaligned();
             current_ptr = current_ptr.add(2);
 
             // Process first value
@@ -241,8 +241,8 @@ pub fn histogram32_generic_batched_unroll_2_u32(bytes: &[u8], histogram: &mut Hi
 
         while current_ptr < ptr_end_unroll {
             // Read two 32-bit values at once
-            let value1 = *current_ptr;
-            let value2 = *current_ptr.add(1);
+            let value1 = current_ptr.read_unaligned();
+            let value2 = current_ptr.add(1).read_unaligned();
             current_ptr = current_ptr.add(2);
 
             // Process first value
@@ -282,10 +282,10 @@ pub fn histogram32_generic_batched_unroll_4_u64(bytes: &[u8], histogram: &mut Hi
 
         while current_ptr < ptr_end_unroll {
             // Read four 64-bit values at once
-            let value1 = *current_ptr;
-            let value2 = *current_ptr.add(1);
-            let value3 = *current_ptr.add(2);
-            let value4 = *current_ptr.add(3);
+            let value1 = current_ptr.read_unaligned();
+            let value2 = current_ptr.add(1).read_unaligned();
+            let value3 = current_ptr.add(2).read_unaligned();
+            let value4 = current_ptr.add(3).read_unaligned();
             current_ptr = current_ptr.add(4);
 
             // Process first value

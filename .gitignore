@@ -1,3 +1,9 @@
 target
 /Cargo.lock
 /fuzz/hfuzz_target
+
+# LLM Prompts
+PROMPT.md
+PROMPT-*.md
+PROMPT.MD
+PROMPT-*.MD
