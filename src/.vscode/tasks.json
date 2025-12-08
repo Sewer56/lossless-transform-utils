@@ -4,7 +4,7 @@
     {
       "label": "Auto Test on Save",
       "type": "shell",
-      "command": "cargo watch -x \"test\" -w lossless-transform-utils/src",
+      "command": "cargo install cargo-watch --quiet && cargo watch -x \"test\" -w lossless-transform-utils/src",
       "group": "test",
       "presentation": {
         "reveal": "always"
@@ -45,6 +45,36 @@
       "label": "Run Benchmarks",
       "type": "shell",
       "command": "cargo bench",
+      "group": "test",
+      "presentation": {
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Tests to Detect Undefined Behaviour",
+      "type": "shell",
+      "command": "rustup +nightly component add miri --quiet && cargo +nightly miri test",
+      "group": "test",
+      "presentation": {
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Tests to Detect Undefined Behaviour (Big Endian)",
+      "type": "shell",
+      "command": "rustup +nightly component add miri --quiet && cargo +nightly miri test --target powerpc64-unknown-linux-gnu",
+      "group": "test",
+      "presentation": {
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Test Cross-Compile: Linux (PowerPC 64-bit) [Big Endian]",
+      "type": "shell",
+      "command": "cargo install cross --git https://github.com/cross-rs/cross --quiet && cross test --target powerpc64-unknown-linux-gnu",
       "group": "test",
       "presentation": {
         "reveal": "always"
