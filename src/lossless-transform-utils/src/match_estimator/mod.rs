@@ -18,7 +18,7 @@ mod avx2;
 mod avx512;
 
 /// # Golden Ratio constant used for better hash scattering
-/// https://softwareengineering.stackexchange.com/a/402543
+/// <https://softwareengineering.stackexchange.com/a/402543>
 /// It's a very 'irrational' number, the most, dare I say.
 const GOLDEN_RATIO: u32 = 0x9E3779B1_u32;
 
@@ -81,8 +81,8 @@ const GOLDEN_RATIO: u32 = 0x9E3779B1_u32;
 // happen for quite a while. That said, the lift to next power of 2 only brings marginal improvements
 // accuracy wise.
 //
-// Fun, semi-related reading: https://en.algorithmica.org/hpc/cpu-cache/associativity/#hardware-caches
-// And I found this after writing all this code: https://probablydance.com/2018/06/16/fibonacci-hashing-the-optimization-that-the-world-forgot-or-a-better-alternative-to-integer-modulo/
+// Fun, semi-related reading: <https://en.algorithmica.org/hpc/cpu-cache/associativity/#hardware-caches>
+// And I found this after writing all this code: <https://probablydance.com/2018/06/16/fibonacci-hashing-the-optimization-that-the-world-forgot-or-a-better-alternative-to-integer-modulo/>
 const HASH_BITS: usize = 15; // 2^15 = 32k (of u32s) == 128KBytes
 const HASH_SIZE: usize = 1 << HASH_BITS;
 #[allow(dead_code)]
