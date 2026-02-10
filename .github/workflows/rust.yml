@@ -61,6 +61,7 @@ jobs:
       #       thus as per recommendation of cargo-semver-checks, we're using stable here.
       - name: Run cargo-semver-checks
         if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/')
+        working-directory: src
         shell: bash
         run: |
           SEARCH_RESULT=$(cargo search "^lossless-transform-utils$" --limit 1)
