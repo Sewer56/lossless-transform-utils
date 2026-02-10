@@ -65,11 +65,12 @@ jobs:
         shell: bash
         run: |
           SEARCH_RESULT=$(cargo search "^lossless-transform-utils$" --limit 1)
+
           if echo "$SEARCH_RESULT" | grep -q "^lossless-transform-utils "; then
               # Run semver checks on stable, because nightly sometimes gets borked in cargo-semver-checks.
               rustup +stable target add ${{ matrix.target }}
-              # Note: binstall is available after devops-rust-lightweight-binary@v1 call
-              cargo +stable binstall cargo-semver-checks --no-confirm
+              # Note: binstall is available after devops-rust-test-and-coverage@v1 call
+              cargo +stable binstall --no-confirm cargo-semver-checks --force
               cargo +stable semver-checks --target ${{ matrix.target }}
           else
               echo "No previous version found on crates.io. Skipping semver checks."
